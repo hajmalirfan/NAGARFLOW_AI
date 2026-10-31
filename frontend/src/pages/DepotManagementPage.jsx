@@ -91,6 +91,9 @@ export function DepotFormPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [locationMessage, setLocationMessage] = useState("");
 
   useEffect(() => {
     if (!editing) return;
@@ -110,6 +113,43 @@ export function DepotFormPage() {
   function setField(event) {
     const { name, value, type, checked } = event.target;
     setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function useCurrentLocation() {
+    setLocationError("");
+    setLocationMessage("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationError("Location is unavailable in this browser. Enter the coordinates manually.");
+      return;
+    }
+
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setForm((current) => ({
+          ...current,
+          latitude: coords.latitude.toFixed(6),
+          longitude: coords.longitude.toFixed(6),
+        }));
+        setLocationMessage(
+          `Coordinates filled from your location (accuracy about ${Math.round(coords.accuracy)} m).`,
+        );
+        setLocating(false);
+      },
+      (locationFailure) => {
+        const messages = {
+          1: "Location permission was denied. Allow location access in your browser or enter coordinates manually.",
+          2: "Your location could not be determined. Try again or enter coordinates manually.",
+          3: "Location request timed out. Try again or enter coordinates manually.",
+        };
+        setLocationError(
+          messages[locationFailure.code]
+          ?? "Could not get your location. Enter the coordinates manually.",
+        );
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    );
   }
 
   async function submit(event) {
@@ -167,6 +207,19 @@ export function DepotFormPage() {
             <input name="longitude" type="number" step="any" min="-180" max="180" value={form.longitude} onChange={setField} required />
           </label>
         </div>
+        <div className="depot-location-action">
+          <button
+            className="secondary-action"
+            type="button"
+            onClick={useCurrentLocation}
+            disabled={locating || saving}
+          >
+            {locating ? "Getting your location…" : "Use my location"}
+          </button>
+          <span>Allow browser location access to fill both coordinates.</span>
+        </div>
+        {locationError && <p className="form-error" role="alert">{locationError}</p>}
+        {locationMessage && <p className="depot-location-success" role="status">{locationMessage}</p>}
         <label className="depot-active-toggle">
           <input name="is_active" type="checkbox" aria-label="Active" checked={form.is_active} onChange={setField} />
           <span>Active</span>

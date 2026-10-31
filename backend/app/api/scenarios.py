@@ -2,7 +2,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
@@ -70,8 +70,10 @@ def _serialize(scenario: Scenario) -> ScenarioResponse:
             {
                 "id": point.id,
                 "name": point.name,
+                "point_code": point.point_code,
                 "waste_kg": point.waste_kg,
                 "waste_type": point.waste_type or "",
+                "availability_status": point.availability_status,
             }
             for point in scenario.selected_storage_points
         ],
@@ -118,11 +120,22 @@ def _validated_resources(
     points = db.scalars(
         select(StoragePoint).where(
             StoragePoint.id.in_(payload.storage_point_ids),
-            StoragePoint.scenario_id.in_(owned_scenario_ids),
+            or_(
+                StoragePoint.user_id == user.id,
+                and_(
+                    StoragePoint.user_id.is_(None),
+                    StoragePoint.scenario_id.in_(owned_scenario_ids),
+                ),
+            ),
         )
     ).all()
     if len(points) != len(payload.storage_point_ids):
         raise HTTPException(status_code=422, detail="Select storage points from your configured records.")
+    if any(point.availability_status != "available" for point in points):
+        raise HTTPException(
+            status_code=422,
+            detail="Unavailable storage points cannot be selected for a scenario.",
+        )
     total_waste = sum(
         (Decimal(str(point.waste_kg)) for point in points),
         Decimal("0"),
@@ -201,7 +214,16 @@ def scenario_options(
     ).all()
     points = db.scalars(
         select(StoragePoint)
-        .where(StoragePoint.scenario_id.in_(owned_scenario_ids))
+        .where(
+            or_(
+                StoragePoint.user_id == user.id,
+                and_(
+                    StoragePoint.user_id.is_(None),
+                    StoragePoint.scenario_id.in_(owned_scenario_ids),
+                ),
+            ),
+            StoragePoint.availability_status == "available",
+        )
         .order_by(StoragePoint.name)
     ).all()
     return ScenarioOptions(
@@ -224,8 +246,10 @@ def scenario_options(
             {
                 "id": item.id,
                 "name": item.name,
+                "point_code": item.point_code,
                 "waste_kg": item.waste_kg,
                 "waste_type": item.waste_type or "",
+                "availability_status": item.availability_status,
             }
             for item in points
         ],

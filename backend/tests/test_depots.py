@@ -87,6 +87,7 @@ def scenario_resources(
         StoragePoint(
             scenario_id=source.id,
             name=f"Point {index}",
+            point_code=f"DEPOT-POINT-{index:02d}",
             latitude=11 + index / 100,
             longitude=77 + index / 100,
             waste_kg=100 * index,

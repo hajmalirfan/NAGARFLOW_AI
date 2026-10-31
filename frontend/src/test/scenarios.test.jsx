@@ -30,6 +30,11 @@ vi.mock("../services/api.js", () => ({
   createVehicle: vi.fn(),
   updateVehicle: vi.fn(),
   deleteVehicle: vi.fn(),
+  getStoragePoints: vi.fn(),
+  getStoragePoint: vi.fn(),
+  createStoragePoint: vi.fn(),
+  updateStoragePoint: vi.fn(),
+  deleteStoragePoint: vi.fn(),
 }));
 
 const api = await import("../services/api.js");

@@ -54,6 +54,7 @@ def seed_scenario(
             StoragePoint(
                 scenario_id=scenario.id,
                 name=f"Point {index + 1}",
+                point_code=f"DASH-POINT-{index + 1:02d}",
                 latitude=11.0 + index / 100,
                 longitude=77.0 + index / 100,
                 waste_kg=waste_kg,

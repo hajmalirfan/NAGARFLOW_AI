@@ -12,6 +12,11 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PlaceholderPage from "./pages/PlaceholderPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import {
+  StoragePointDetailPage,
+  StoragePointFormPage,
+  StoragePointListPage,
+} from "./pages/StoragePointManagementPage.jsx";
+import {
   ScenarioDetailPage,
   ScenarioFormPage,
   ScenarioListPage,
@@ -25,13 +30,6 @@ import SignInPage from "./pages/SignInPage.jsx";
 
 // Sidebar destinations whose own development step has not been reached.
 const UPCOMING_PAGES = [
-  {
-    path: "storage-points",
-    title: "Storage Points",
-    kicker: "COLLECTION POINTS",
-    step: "Phase 7",
-    description: "Register six to ten mandatory collection points and their waste quantities.",
-  },
   {
     path: "facility",
     title: "Processing Facility",
@@ -87,6 +85,10 @@ export default function App() {
             <Route path="/vehicles/new" element={<VehicleFormPage />} />
             <Route path="/vehicles/:vehicleId/edit" element={<VehicleFormPage />} />
             <Route path="/vehicles/:vehicleId" element={<VehicleDetailPage />} />
+            <Route path="/storage-points" element={<StoragePointListPage />} />
+            <Route path="/storage-points/new" element={<StoragePointFormPage />} />
+            <Route path="/storage-points/:pointId/edit" element={<StoragePointFormPage />} />
+            <Route path="/storage-points/:pointId" element={<StoragePointDetailPage />} />
             {UPCOMING_PAGES.map((page) => (
               <Route
                 key={page.path}

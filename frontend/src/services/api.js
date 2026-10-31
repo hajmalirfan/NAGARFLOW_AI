@@ -186,3 +186,29 @@ export async function updateVehicle(id, vehicle) {
 export async function deleteVehicle(id) {
   return request(`/api/v1/vehicles/${id}`, { method: "DELETE" });
 }
+
+export async function getStoragePoints() {
+  return request("/api/v1/storage-points");
+}
+
+export async function getStoragePoint(id) {
+  return request(`/api/v1/storage-points/${id}`);
+}
+
+export async function createStoragePoint(point) {
+  return request("/api/v1/storage-points", {
+    method: "POST",
+    body: JSON.stringify(point),
+  });
+}
+
+export async function updateStoragePoint(id, point) {
+  return request(`/api/v1/storage-points/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(point),
+  });
+}
+
+export async function deleteStoragePoint(id) {
+  return request(`/api/v1/storage-points/${id}`, { method: "DELETE" });
+}

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import App from "../App.jsx";
 import { TOKEN_STORAGE_KEY } from "../auth/AuthContext.jsx";
 
@@ -30,9 +30,15 @@ vi.mock("../services/api.js", () => ({
   createVehicle: vi.fn(),
   updateVehicle: vi.fn(),
   deleteVehicle: vi.fn(),
+  getStoragePoints: vi.fn(),
+  getStoragePoint: vi.fn(),
+  createStoragePoint: vi.fn(),
+  updateStoragePoint: vi.fn(),
+  deleteStoragePoint: vi.fn(),
 }));
 
 const api = await import("../services/api.js");
+const originalGeolocationDescriptor = Object.getOwnPropertyDescriptor(navigator, "geolocation");
 const account = { id: 1, name: "Asha Rao", email: "asha@example.com" };
 const depot = {
   id: 7,
@@ -76,6 +82,14 @@ beforeEach(() => {
   api.getDepots.mockResolvedValue([]);
   api.getVehicles.mockResolvedValue([]);
   api.getDepot.mockResolvedValue(depot);
+});
+
+afterEach(() => {
+  if (originalGeolocationDescriptor) {
+    Object.defineProperty(navigator, "geolocation", originalGeolocationDescriptor);
+  } else {
+    delete navigator.geolocation;
+  }
 });
 
 describe("depot management", () => {
@@ -130,5 +144,42 @@ describe("depot management", () => {
       longitude: depot.longitude,
       is_active: false,
     }));
+  });
+
+  test("fills depot coordinates from the browser location", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn((onSuccess) => onSuccess({
+          coords: { latitude: 10.89918, longitude: 79.54393, accuracy: 12.4 },
+        })),
+      },
+    });
+    renderApp("/depot/new");
+
+    await user.click(await screen.findByRole("button", { name: "Use my location" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("accuracy about 12 m");
+    expect(screen.getByLabelText("Latitude")).toHaveValue(10.89918);
+    expect(screen.getByLabelText("Longitude")).toHaveValue(79.54393);
+  });
+
+  test("explains when browser location permission is denied", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn((_onSuccess, onError) => onError({ code: 1 })),
+      },
+    });
+    renderApp("/depot/new");
+
+    await user.click(await screen.findByRole("button", { name: "Use my location" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Location permission was denied",
+    );
+    expect(screen.getByLabelText("Latitude")).toHaveValue(null);
   });
 });

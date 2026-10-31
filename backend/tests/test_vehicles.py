@@ -107,6 +107,7 @@ def scenario_resources(
         StoragePoint(
             scenario_id=source.id,
             name=f"Point {index}",
+            point_code=f"VEH-POINT-{index:02d}",
             latitude=11 + index / 100,
             longitude=77 + index / 100,
             waste_kg=100 * index,
@@ -342,6 +343,7 @@ def test_independently_managed_vehicles_can_be_selected_and_counted(
         StoragePoint(
             scenario_id=resource_scenario.id,
             name=f"Collection point {index}",
+            point_code=f"RESOURCE-POINT-{index:02d}",
             latitude=11 + index / 100,
             longitude=77 + index / 100,
             waste_kg=100,

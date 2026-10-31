@@ -79,6 +79,7 @@ def scenario_resources(
         StoragePoint(
             scenario_id=source.id,
             name=f"Point {index}",
+            point_code=f"SC-POINT-{index:02d}",
             latitude=11 + index / 100,
             longitude=77 + index / 100,
             waste_kg=100 * index,
@@ -223,6 +224,27 @@ def test_unknown_or_other_users_records_are_rejected(
     invalid["facility_id"] = 99999
 
     assert client.post(SCENARIOS, json=invalid, headers=auth_headers).status_code == 422
+
+
+def test_unavailable_storage_points_are_not_offered_or_assignable(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    scenario_resources: dict[str, object],
+    db_session: Session,
+) -> None:
+    point = scenario_resources["points"][0]
+    point.availability_status = "unavailable"
+    db_session.commit()
+
+    options = client.get(f"{SCENARIOS}/options", headers=auth_headers).json()
+    assert point.id not in {item["id"] for item in options["storage_points"]}
+    response = client.post(
+        SCENARIOS,
+        json=payload(scenario_resources),
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+    assert "Unavailable storage points" in response.json()["detail"]
 
 
 def test_name_must_be_unique_per_user(

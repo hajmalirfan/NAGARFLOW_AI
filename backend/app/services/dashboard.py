@@ -6,7 +6,7 @@ with a placeholder figure: when there is no data the result is genuinely
 zero, and the facility card reports that it is not configured.
 """
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.scenario import scenario_storage_points, scenario_vehicles
@@ -46,17 +46,15 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
         .order_by(Scenario.created_at.desc(), Scenario.id.desc())
     ).all()
 
-    selected_storage_point_ids = (
-        select(scenario_storage_points.c.storage_point_id)
-        .join(Scenario, Scenario.id == scenario_storage_points.c.scenario_id)
-        .where(Scenario.user_id == user.id)
-    )
     storage_points = db.scalars(
         select(StoragePoint)
         .where(
             or_(
-                StoragePoint.scenario_id.in_(scenario_ids),
-                StoragePoint.id.in_(selected_storage_point_ids),
+                StoragePoint.user_id == user.id,
+                and_(
+                    StoragePoint.user_id.is_(None),
+                    StoragePoint.scenario_id.in_(scenario_ids),
+                ),
             )
         )
         .order_by(StoragePoint.id)
@@ -92,6 +90,14 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
         for reference, vehicle_id in db.execute(
             select(Scenario.reference, scenario_vehicles.c.vehicle_id)
             .join(Scenario, Scenario.id == scenario_vehicles.c.scenario_id)
+            .where(Scenario.user_id == user.id)
+        ).all()
+    }
+    selected_storage_point_references = {
+        point_id: reference
+        for reference, point_id in db.execute(
+            select(Scenario.reference, scenario_storage_points.c.storage_point_id)
+            .join(Scenario, Scenario.id == scenario_storage_points.c.scenario_id)
             .where(Scenario.user_id == user.id)
         ).all()
     }
@@ -152,7 +158,10 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
                 waste_kg=point.waste_kg,
                 waste_type=point.waste_type,
                 available_from=point.available_from,
-                scenario_reference=scenario_reference.get(point.scenario_id, ""),
+                scenario_reference=(
+                    selected_storage_point_references.get(point.id)
+                    or scenario_reference.get(point.scenario_id, "")
+                ),
             )
             for point in storage_points[:STORAGE_POINT_LIMIT]
         ],

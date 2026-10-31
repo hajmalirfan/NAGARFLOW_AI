@@ -29,8 +29,10 @@ class VehicleOption(BaseModel):
 class StoragePointOption(BaseModel):
     id: int
     name: str
+    point_code: str
     waste_kg: float
     waste_type: str
+    availability_status: str
 
 
 class ScenarioWrite(BaseModel):

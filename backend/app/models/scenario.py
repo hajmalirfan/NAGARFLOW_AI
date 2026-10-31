@@ -53,9 +53,8 @@ scenario_storage_points = Table(
 class Scenario(Base):
     """One planning scenario belonging to a municipal coordinator.
 
-    A scenario owns the depot, vehicles, storage points and processing
-    facility that an optimization run works on, so every figure on the
-    dashboard is scoped through the scenarios a user owns.
+    A scenario selects coordinator-owned depots, vehicles, storage points,
+    and processing facilities for an optimization run.
     """
 
     __tablename__ = "scenarios"
@@ -71,7 +70,7 @@ class Scenario(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     storage_points: Mapped[list["StoragePoint"]] = relationship(  # noqa: F821
-        back_populates="scenario", cascade="all, delete-orphan"
+        back_populates="scenario"
     )
     vehicles: Mapped[list["Vehicle"]] = relationship(  # noqa: F821
         back_populates="scenario", cascade="all, delete-orphan"

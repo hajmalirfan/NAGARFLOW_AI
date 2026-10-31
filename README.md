@@ -107,9 +107,10 @@ development only.
 After signing in, the dashboard shows six summary cards and five sections
 describing the municipality's waste transportation status. Every figure comes
 from `GET /api/v1/dashboard/summary`, which aggregates the signed-in
-coordinator's own scenarios only. Nothing is sampled or estimated: with no data
-configured the cards genuinely read zero, and the facility card reads
-"Not configured" rather than implying a real capacity of zero.
+coordinator's configured records and scenarios. Nothing is sampled or
+estimated: with no data configured the cards genuinely read zero, and the
+facility card reads "Not configured" rather than implying a real capacity of
+zero.
 
 Sidebar destinations whose development step has not been reached say so plainly
 instead of showing an empty shell or placeholder statistics.
@@ -147,6 +148,27 @@ exceed the selected fleet's combined single-trip capacity; a vehicle linked to
 a scenario cannot be deleted or made unavailable until its scenario is
 updated. The startup schema upgrade preserves older scenario-owned vehicle
 records without inventing their missing registration or depot details.
+
+## Storage point management
+
+The authenticated `/api/v1/storage-points` API and Storage Point Management
+page provide create, list, detail, update, and delete operations for the
+signed-in coordinator's real collection locations. Point codes are unique,
+coordinates are range-checked, and waste quantity is stored as
+`NUMERIC(12,2)` with a non-negative constraint. Points are independent records
+that scenarios reference through `scenario_storage_points`; a linked point
+cannot be deleted, and a quantity change is rejected if it would exceed the
+combined capacity of a linked scenario's vehicles. Scenarios continue to
+require six to ten selected points.
+
+The management page supports search and availability filtering and displays
+registered coordinates on a MapLibre map using OpenStreetMap raster tiles,
+with OpenStreetMap attribution. The initial map view uses the supplied
+coordinates (10.89918, 79.54393); they are only a map center, not a seeded
+storage point. Availability is stored as a static status only; no
+time-dependent collection logic is applied before the DEC-003 decision.
+Existing scenario-owned points are migrated to coordinator ownership;
+legacy records without codes receive a clearly marked `LEGACY-SP-<id>` code.
 
 ## Forgotten passwords
 
