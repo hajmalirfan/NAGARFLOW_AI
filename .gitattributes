@@ -1,0 +1,23 @@
+# Normalize text files to LF in the repository, whatever the checkout OS.
+* text=auto
+
+# Binary files must never have their line endings rewritten. With
+# core.autocrlf enabled, Git otherwise decides per file by inspecting the
+# content, and a file it misreads as text comes out of a checkout corrupted.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.gz binary
+*.dump binary
+
+# Lockfiles are generated; keep them out of diffs and merges.
+package-lock.json -diff linguist-generated
