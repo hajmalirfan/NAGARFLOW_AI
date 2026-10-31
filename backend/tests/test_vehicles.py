@@ -99,6 +99,7 @@ def scenario_resources(
     facility = ProcessingFacility(
         scenario_id=source.id,
         name="Central facility",
+        facility_code="FAC-VEHICLES",
         latitude=11.5,
         longitude=77.5,
         capacity_kg=9000,
@@ -335,6 +336,7 @@ def test_independently_managed_vehicles_can_be_selected_and_counted(
     facility = ProcessingFacility(
         scenario_id=resource_scenario.id,
         name="Configured facility",
+        facility_code="FAC-VEHICLES-2",
         latitude=11.4,
         longitude=77.4,
         capacity_kg=20000,

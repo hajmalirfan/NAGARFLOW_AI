@@ -12,11 +12,14 @@ from app.models import (
     OptimizationRun,
     ProcessingFacility,
     Scenario,
+    ScenarioValidation,
     StoragePoint,
     User,
     Vehicle,
 )
 from app.schemas.scenario import ScenarioOptions, ScenarioResponse, ScenarioWrite
+from app.schemas.validation import ValidationHistoryEntry, ValidationReportResponse
+from app.services.validation import record_validation, validate_scenario
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 ACTIVE_OPTIMIZATION_STATUSES = {"queued", "pending", "running", "in_progress"}
@@ -93,11 +96,23 @@ def _validated_resources(
     facility = db.scalar(
         select(ProcessingFacility).where(
             ProcessingFacility.id == payload.facility_id,
-            ProcessingFacility.scenario_id.in_(owned_scenario_ids),
+            or_(
+                ProcessingFacility.user_id == user.id,
+                and_(
+                    ProcessingFacility.user_id.is_(None),
+                    ProcessingFacility.scenario_id.in_(owned_scenario_ids),
+                ),
+            ),
         )
     )
     if facility is None:
         raise HTTPException(status_code=422, detail="Select a processing facility from your records.")
+    # Rule 4: an inactive facility cannot be chosen for a new scenario.
+    if facility.status != "active":
+        raise HTTPException(
+            status_code=422,
+            detail="Inactive processing facilities cannot be selected for a scenario.",
+        )
 
     vehicles = db.scalars(
         select(Vehicle).where(
@@ -149,6 +164,17 @@ def _validated_resources(
             status_code=422,
             detail="Selected waste exceeds the combined capacity of the two vehicles.",
         )
+    # Rule 2: W1 + W2 <= F. The facility capacity is one shared pool across
+    # both vehicle deliveries, not a per-vehicle allowance.
+    facility_capacity = Decimal(str(facility.capacity_kg))
+    if total_waste > facility_capacity:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Selected waste exceeds the shared capacity of the processing "
+                "facility."
+            ),
+        )
     return depot, facility, vehicles, points
 
 
@@ -194,7 +220,17 @@ def scenario_options(
     ).all()
     facilities = db.scalars(
         select(ProcessingFacility)
-        .where(ProcessingFacility.scenario_id.in_(owned_scenario_ids))
+        .where(
+            or_(
+                ProcessingFacility.user_id == user.id,
+                and_(
+                    ProcessingFacility.user_id.is_(None),
+                    ProcessingFacility.scenario_id.in_(owned_scenario_ids),
+                ),
+            ),
+            # Rule 4: only an active facility can be offered for selection.
+            ProcessingFacility.status == "active",
+        )
         .order_by(ProcessingFacility.name)
     ).all()
     vehicles = db.scalars(
@@ -332,3 +368,61 @@ def delete_scenario(
     db.delete(scenario)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{scenario_id}/validate", response_model=ValidationReportResponse)
+def validate_scenario_endpoint(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ValidationReportResponse:
+    """Check every hard constraint before the optimizer may run.
+
+    The result is recorded so the decision can be reviewed later, and the
+    scenario is re-checked on every call rather than cached, because the
+    underlying vehicles, points and facility can change at any time.
+    """
+    scenario = _get_owned_scenario(db, scenario_id, user)
+    report = validate_scenario(db, scenario)
+    record_validation(db, report)
+    return ValidationReportResponse(
+        scenario_id=report.scenario_id,
+        validation_status=report.validation_status,
+        can_optimize=report.can_optimize,
+        checks=report.checks,
+        errors=report.errors,
+        warnings=report.warnings,
+        total_waste_kg=float(report.total_waste_kg),
+        storage_point_count=report.storage_point_count,
+        feasible_assignment=(
+            [
+                {
+                    "vehicle_id": load.vehicle_id,
+                    "name": load.name,
+                    "capacity_kg": float(load.capacity_kg),
+                    "assigned_point_codes": load.assigned_point_codes,
+                    "assigned_kg": float(load.assigned_kg),
+                }
+                for load in report.feasible_assignment
+            ]
+            if report.feasible_assignment is not None
+            else None
+        ),
+    )
+
+
+@router.get("/{scenario_id}/validations", response_model=list[ValidationHistoryEntry])
+def list_scenario_validations(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ScenarioValidation]:
+    """Past validation runs for this scenario, newest first."""
+    _get_owned_scenario(db, scenario_id, user)
+    return list(
+        db.scalars(
+            select(ScenarioValidation)
+            .where(ScenarioValidation.scenario_id == scenario_id)
+            .order_by(ScenarioValidation.id.desc())
+        ).all()
+    )

@@ -76,6 +76,7 @@ def seed_scenario(
             ProcessingFacility(
                 scenario_id=scenario.id,
                 name="Central facility",
+                facility_code=f"FAC-{scenario.id}",
                 latitude=11.5,
                 longitude=77.5,
                 capacity_kg=facility_capacity_kg,

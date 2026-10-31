@@ -504,3 +504,290 @@ def _rebuild_sqlite_storage_point_table(engine: Engine) -> None:
             connection.exec_driver_sql("PRAGMA legacy_alter_table=OFF")
             connection.exec_driver_sql("PRAGMA foreign_keys=ON")
             connection.commit()
+
+
+def upgrade_legacy_facility_schema(engine: Engine) -> None:
+    """Make processing facilities independently managed and retain legacy data."""
+    inspector = inspect(engine)
+    if "processing_facilities" not in inspector.get_table_names():
+        return
+
+    columns = {
+        column["name"]: column
+        for column in inspector.get_columns("processing_facilities")
+    }
+    required_columns = {
+        "user_id",
+        "facility_code",
+        "address",
+        "status",
+        "description",
+        "created_at",
+        "updated_at",
+    }
+    rebuild_sqlite_table = engine.dialect.name == "sqlite" and (
+        not required_columns.issubset(columns)
+        or ("scenario_id" in columns and not columns["scenario_id"]["nullable"])
+    )
+    if rebuild_sqlite_table:
+        _rebuild_sqlite_facility_table(engine)
+    else:
+        _add_facility_columns(engine, columns)
+    _ensure_facility_constraints(engine)
+
+    with engine.begin() as connection:
+        if "scenarios" in inspect(engine).get_table_names():
+            connection.execute(
+                text(
+                    "UPDATE processing_facilities SET user_id = "
+                    "(SELECT scenarios.user_id FROM scenarios "
+                    "WHERE scenarios.id = processing_facilities.scenario_id) "
+                    "WHERE user_id IS NULL AND scenario_id IS NOT NULL"
+                )
+            )
+        connection.execute(
+            text(
+                "UPDATE processing_facilities SET facility_code = 'LEGACY-FAC-' || id "
+                "WHERE facility_code IS NULL OR facility_code = ''"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE processing_facilities SET status = 'active' "
+                "WHERE status IS NULL OR status = ''"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE processing_facilities SET created_at = CURRENT_TIMESTAMP "
+                "WHERE created_at IS NULL"
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE processing_facilities SET updated_at = CURRENT_TIMESTAMP "
+                "WHERE updated_at IS NULL"
+            )
+        )
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE processing_facilities "
+                    "ALTER COLUMN facility_code SET NOT NULL"
+                )
+            )
+            connection.execute(
+                text(
+                    "ALTER TABLE processing_facilities ALTER COLUMN status "
+                    "SET DEFAULT 'active'"
+                )
+            )
+            connection.execute(
+                text("ALTER TABLE processing_facilities ALTER COLUMN status SET NOT NULL")
+            )
+            for column in ("created_at", "updated_at"):
+                connection.execute(
+                    text(
+                        f"ALTER TABLE processing_facilities ALTER COLUMN {column} "
+                        "SET DEFAULT CURRENT_TIMESTAMP"
+                    )
+                )
+                connection.execute(
+                    text(
+                        f"ALTER TABLE processing_facilities ALTER COLUMN {column} "
+                        "SET NOT NULL"
+                    )
+                )
+
+
+def _add_facility_columns(engine: Engine, columns: dict[str, dict]) -> None:
+    existing_columns = set(columns)
+    additions = {
+        "user_id": "INTEGER",
+        "facility_code": "VARCHAR(50)",
+        "address": "TEXT",
+        "status": "VARCHAR(30) DEFAULT 'active'",
+        "description": "TEXT",
+        "created_at": "TIMESTAMP",
+        "updated_at": "TIMESTAMP",
+    }
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE processing_facilities "
+                    "ALTER COLUMN scenario_id DROP NOT NULL"
+                )
+            )
+            capacity_type = columns.get("capacity_kg", {}).get("type")
+            if capacity_type is not None and (
+                not isinstance(capacity_type, Numeric)
+                or capacity_type.precision != 12
+                or capacity_type.scale != 2
+            ):
+                connection.execute(
+                    text(
+                        "ALTER TABLE processing_facilities ALTER COLUMN capacity_kg "
+                        "TYPE NUMERIC(12, 2) USING capacity_kg::numeric(12, 2)"
+                    )
+                )
+    with engine.begin() as connection:
+        for column, definition in additions.items():
+            if column not in existing_columns:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE processing_facilities ADD COLUMN {column} {definition}"
+                    )
+                )
+
+
+def _ensure_facility_constraints(engine: Engine) -> None:
+    if engine.dialect.name != "postgresql":
+        return
+    with engine.begin() as connection:
+        for foreign_key in inspect(engine).get_foreign_keys("processing_facilities"):
+            if foreign_key.get("constrained_columns") == ["scenario_id"]:
+                if foreign_key.get("options", {}).get("ondelete", "").upper() != "SET NULL":
+                    constraint_name = foreign_key.get("name")
+                    if constraint_name:
+                        connection.execute(
+                            text(
+                                "ALTER TABLE processing_facilities DROP CONSTRAINT "
+                                f"{constraint_name}"
+                            )
+                        )
+                else:
+                    break
+        current_foreign_keys = inspect(engine).get_foreign_keys("processing_facilities")
+        has_scenario_fk = any(
+            key.get("constrained_columns") == ["scenario_id"]
+            and key.get("options", {}).get("ondelete", "").upper() == "SET NULL"
+            for key in current_foreign_keys
+        )
+        has_user_fk = any(
+            key.get("constrained_columns") == ["user_id"]
+            and key.get("referred_table") == "users"
+            for key in current_foreign_keys
+        )
+        if not has_scenario_fk:
+            connection.execute(
+                text(
+                    "ALTER TABLE processing_facilities ADD CONSTRAINT "
+                    "fk_processing_facilities_scenario_id_scenarios "
+                    "FOREIGN KEY (scenario_id) REFERENCES scenarios(id) ON DELETE SET NULL"
+                )
+            )
+        if not has_user_fk:
+            connection.execute(
+                text(
+                    "ALTER TABLE processing_facilities ADD CONSTRAINT "
+                    "fk_processing_facilities_user_id_users "
+                    "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+                )
+            )
+        unique_constraints = inspect(engine).get_unique_constraints("processing_facilities")
+        indexes = inspect(engine).get_indexes("processing_facilities")
+        has_code_unique = any(
+            constraint.get("column_names") == ["facility_code"]
+            for constraint in unique_constraints
+        ) or any(
+            index.get("column_names") == ["facility_code"] and index.get("unique")
+            for index in indexes
+        )
+        if not has_code_unique:
+            connection.execute(
+                text(
+                    "ALTER TABLE processing_facilities ADD CONSTRAINT "
+                    "uq_processing_facilities_facility_code UNIQUE (facility_code)"
+                )
+            )
+        checks = inspect(engine).get_check_constraints("processing_facilities")
+        expected_checks = {
+            "positive_capacity": "capacity_kg > 0",
+            "valid_latitude": "latitude BETWEEN -90 AND 90",
+            "valid_longitude": "longitude BETWEEN -180 AND 180",
+        }
+        for name, expression in expected_checks.items():
+            if not any(check.get("name") == name for check in checks):
+                connection.execute(
+                    text(
+                        f"ALTER TABLE processing_facilities ADD CONSTRAINT {name} "
+                        f"CHECK ({expression}) NOT VALID"
+                    )
+                )
+
+
+def _rebuild_sqlite_facility_table(engine: Engine) -> None:
+    from app.models.processing_facility import ProcessingFacility
+
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.exec_driver_sql("PRAGMA legacy_alter_table=ON")
+        connection.commit()
+        try:
+            connection.exec_driver_sql(
+                "CREATE TABLE processing_facilities_legacy_backup AS "
+                "SELECT * FROM processing_facilities"
+            )
+            connection.exec_driver_sql("DROP TABLE processing_facilities")
+            ProcessingFacility.__table__.create(connection)
+
+            old_columns = {
+                row[1]
+                for row in connection.exec_driver_sql(
+                    "PRAGMA table_info(processing_facilities_legacy_backup)"
+                )
+            }
+            target_columns = [
+                column.name for column in ProcessingFacility.__table__.columns
+            ]
+            expressions = []
+            for column in target_columns:
+                if column == "user_id":
+                    if "user_id" in old_columns:
+                        expressions.append(
+                            "COALESCE(user_id, "
+                            "(SELECT user_id FROM scenarios WHERE scenarios.id = scenario_id))"
+                        )
+                    else:
+                        expressions.append(
+                            "(SELECT user_id FROM scenarios WHERE scenarios.id = scenario_id)"
+                        )
+                elif column == "facility_code":
+                    if "facility_code" in old_columns:
+                        expressions.append(
+                            "COALESCE(NULLIF(facility_code, ''), 'LEGACY-FAC-' || id)"
+                        )
+                    else:
+                        expressions.append("'LEGACY-FAC-' || id")
+                elif column == "status":
+                    if column in old_columns:
+                        expressions.append("COALESCE(status, 'active')")
+                    else:
+                        expressions.append("'active'")
+                elif column in {"created_at", "updated_at"}:
+                    if column in old_columns:
+                        expressions.append(f"COALESCE({column}, CURRENT_TIMESTAMP)")
+                    else:
+                        expressions.append("CURRENT_TIMESTAMP")
+                elif column in old_columns:
+                    expressions.append(column)
+                else:
+                    expressions.append("NULL")
+            column_list = ", ".join(target_columns)
+            connection.exec_driver_sql(
+                f"INSERT INTO processing_facilities ({column_list}) "
+                f"SELECT {', '.join(expressions)} "
+                "FROM processing_facilities_legacy_backup"
+            )
+            connection.exec_driver_sql("DROP TABLE processing_facilities_legacy_backup")
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.exec_driver_sql("PRAGMA legacy_alter_table=OFF")
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()

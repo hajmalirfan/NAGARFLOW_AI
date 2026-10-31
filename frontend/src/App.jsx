@@ -8,6 +8,11 @@ import {
   DepotFormPage,
   DepotListPage,
 } from "./pages/DepotManagementPage.jsx";
+import {
+  FacilityDetailPage,
+  FacilityFormPage,
+  FacilityListPage,
+} from "./pages/ProcessingFacilityManagementPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PlaceholderPage from "./pages/PlaceholderPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
@@ -30,13 +35,6 @@ import SignInPage from "./pages/SignInPage.jsx";
 
 // Sidebar destinations whose own development step has not been reached.
 const UPCOMING_PAGES = [
-  {
-    path: "facility",
-    title: "Processing Facility",
-    kicker: "FACILITY",
-    step: "Phase 8",
-    description: "Set the facility position and its shared delivery capacity.",
-  },
   {
     path: "route-optimization",
     title: "Route Optimization",
@@ -85,6 +83,10 @@ export default function App() {
             <Route path="/vehicles/new" element={<VehicleFormPage />} />
             <Route path="/vehicles/:vehicleId/edit" element={<VehicleFormPage />} />
             <Route path="/vehicles/:vehicleId" element={<VehicleDetailPage />} />
+            <Route path="/facility" element={<FacilityListPage />} />
+            <Route path="/facility/new" element={<FacilityFormPage />} />
+            <Route path="/facility/:facilityId/edit" element={<FacilityFormPage />} />
+            <Route path="/facility/:facilityId" element={<FacilityDetailPage />} />
             <Route path="/storage-points" element={<StoragePointListPage />} />
             <Route path="/storage-points/new" element={<StoragePointFormPage />} />
             <Route path="/storage-points/:pointId/edit" element={<StoragePointFormPage />} />

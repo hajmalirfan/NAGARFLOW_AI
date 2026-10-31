@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # Scenario validation. A scenario is only marked valid when road
+    # connectivity has actually been checked. Setting this to false is an
+    # explicit development override for use before the OpenStreetMap road
+    # network lands; every validation that relies on it is logged.
+    require_road_connectivity: bool = True
+
     # Password reset
     reset_token_expire_minutes: int = 15
     # Where the reset link should point. Must be the address the user's

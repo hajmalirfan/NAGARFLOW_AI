@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import ValidationReport from "../components/ValidationReport.jsx";
 import {
   createScenario,
   deleteScenario,
@@ -7,6 +8,7 @@ import {
   getScenarioOptions,
   getScenarios,
   updateScenario,
+  validateScenario,
 } from "../services/api.js";
 
 function PageError({ message }) {
@@ -299,6 +301,8 @@ export function ScenarioDetailPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [report, setReport] = useState(null);
+  const [validating, setValidating] = useState(false);
 
   useEffect(() => {
     getScenario(scenarioId)
@@ -306,6 +310,25 @@ export function ScenarioDetailPage() {
       .catch((requestError) => setError(requestError.message))
       .finally(() => setLoading(false));
   }, [scenarioId]);
+
+  // Any edit to the scenario invalidates an earlier report, so the result
+  // is dropped rather than left on screen describing stale data.
+  useEffect(() => {
+    setReport(null);
+  }, [scenarioId, scenario?.updated_at]);
+
+  async function runValidation() {
+    setValidating(true);
+    setError("");
+    try {
+      setReport(await validateScenario(scenarioId));
+    } catch (requestError) {
+      setError(requestError.message);
+      setReport(null);
+    } finally {
+      setValidating(false);
+    }
+  }
 
   async function removeScenario() {
     if (!window.confirm(`Delete "${scenario.name}"? This cannot be undone.`)) return;
@@ -331,6 +354,22 @@ export function ScenarioDetailPage() {
         subtitle={scenario.description || "No description provided."}
         action={
           <div className="scenario-actions">
+            <button type="button" className="primary-action" onClick={runValidation} disabled={validating}>
+              {validating ? "Validating…" : "Validate Scenario"}
+            </button>
+            <button
+              type="button"
+              className="secondary-action"
+              disabled={!report?.can_optimize}
+              title={
+                report?.can_optimize
+                  ? "Run the optimization algorithms"
+                  : "Validate the scenario first; optimization unlocks only when every check passes"
+              }
+              onClick={() => navigate(`/route-optimization?scenario=${scenario.id}`)}
+            >
+              Proceed to Optimization
+            </button>
             <Link className="secondary-action" to={`/scenarios/${scenario.id}/edit`}>Edit scenario</Link>
             <button type="button" className="danger-action" onClick={removeScenario} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
@@ -358,6 +397,7 @@ export function ScenarioDetailPage() {
           {scenario.storage_points.length ? <ul className="scenario-resource-list">{scenario.storage_points.map((point) => <li key={point.id}><span>{point.name}</span><small>{point.waste_kg.toLocaleString()} kg{point.waste_type ? ` · ${point.waste_type}` : ""}</small></li>)}</ul> : <p className="scenario-help">No storage points selected.</p>}
         </article>
       </div>
+      <ValidationReport report={report} />
       <Link className="panel-link scenario-back-link" to="/scenarios">← All scenarios</Link>
     </section>
   );

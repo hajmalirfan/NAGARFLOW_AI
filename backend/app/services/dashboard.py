@@ -77,7 +77,15 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
     ).all()
 
     facilities = db.scalars(
-        select(ProcessingFacility).where(ProcessingFacility.scenario_id.in_(scenario_ids))
+        select(ProcessingFacility).where(
+            or_(
+                ProcessingFacility.user_id == user.id,
+                and_(
+                    ProcessingFacility.user_id.is_(None),
+                    ProcessingFacility.scenario_id.in_(scenario_ids),
+                ),
+            )
+        )
     ).all()
 
     runs = db.scalars(

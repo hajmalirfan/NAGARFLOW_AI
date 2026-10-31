@@ -212,3 +212,41 @@ export async function updateStoragePoint(id, point) {
 export async function deleteStoragePoint(id) {
   return request(`/api/v1/storage-points/${id}`, { method: "DELETE" });
 }
+
+export async function getFacilities() {
+  return request("/api/v1/facilities");
+}
+
+export async function getFacility(id) {
+  return request(`/api/v1/facilities/${id}`);
+}
+
+export async function getFacilityCapacity(id) {
+  return request(`/api/v1/facilities/${id}/capacity`);
+}
+
+export async function createFacility(facility) {
+  return request("/api/v1/facilities", {
+    method: "POST",
+    body: JSON.stringify(facility),
+  });
+}
+
+export async function updateFacility(id, facility) {
+  return request(`/api/v1/facilities/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(facility),
+  });
+}
+
+export async function deleteFacility(id) {
+  return request(`/api/v1/facilities/${id}`, { method: "DELETE" });
+}
+
+export async function validateScenario(id) {
+  return request(`/api/v1/scenarios/${id}/validate`, { method: "POST" });
+}
+
+export async function getScenarioValidations(id) {
+  return request(`/api/v1/scenarios/${id}/validations`);
+}

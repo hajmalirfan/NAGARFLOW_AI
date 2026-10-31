@@ -11,6 +11,7 @@ from app.models.optimization_run import OptimizationRun
 from app.models.password_reset_token import PasswordResetToken
 from app.models.processing_facility import ProcessingFacility
 from app.models.scenario import Scenario
+from app.models.scenario_validation import ScenarioValidation
 from app.models.storage_point import StoragePoint
 from app.models.user import User
 from app.models.vehicle import Vehicle
@@ -21,6 +22,7 @@ __all__ = [
     "PasswordResetToken",
     "ProcessingFacility",
     "Scenario",
+    "ScenarioValidation",
     "StoragePoint",
     "User",
     "Vehicle",

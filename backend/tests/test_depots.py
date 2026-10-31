@@ -64,6 +64,7 @@ def scenario_resources(
     facility = ProcessingFacility(
         scenario_id=source.id,
         name="Central facility",
+        facility_code="FAC-DEPOTS",
         latitude=11.5,
         longitude=77.5,
         capacity_kg=9000,

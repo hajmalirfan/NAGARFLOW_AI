@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import App from "../App.jsx";
 import { TOKEN_STORAGE_KEY } from "../auth/AuthContext.jsx";
 
@@ -104,6 +104,7 @@ vi.mock("../services/api.js", () => ({
 }));
 
 const api = await import("../services/api.js");
+const originalGeolocationDescriptor = Object.getOwnPropertyDescriptor(navigator, "geolocation");
 const account = { id: 1, name: "Asha Rao", email: "asha@example.com" };
 const point = {
   id: 9,
@@ -134,6 +135,14 @@ beforeEach(() => {
   api.getCurrentUser.mockResolvedValue(account);
   api.getStoragePoints.mockResolvedValue([]);
   api.getStoragePoint.mockResolvedValue(point);
+});
+
+afterEach(() => {
+  if (originalGeolocationDescriptor) {
+    Object.defineProperty(navigator, "geolocation", originalGeolocationDescriptor);
+  } else {
+    delete navigator.geolocation;
+  }
 });
 
 describe("storage point management", () => {
@@ -220,6 +229,43 @@ describe("storage point management", () => {
       availability_status: "unavailable",
       description: "Municipal collection area.",
     }));
+  });
+
+  test("fills storage point coordinates from the browser location", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn((onSuccess) => onSuccess({
+          coords: { latitude: 10.89918, longitude: 79.54393, accuracy: 12.4 },
+        })),
+      },
+    });
+    renderApp("/storage-points/new");
+
+    await user.click(await screen.findByRole("button", { name: "Use my location" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("accuracy about 12 m");
+    expect(screen.getByLabelText("Latitude")).toHaveValue(10.89918);
+    expect(screen.getByLabelText("Longitude")).toHaveValue(79.54393);
+  });
+
+  test("explains when location permission is denied for a storage point", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: vi.fn((_onSuccess, onError) => onError({ code: 1 })),
+      },
+    });
+    renderApp("/storage-points/new");
+
+    await user.click(await screen.findByRole("button", { name: "Use my location" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Location permission was denied",
+    );
+    expect(screen.getByLabelText("Latitude")).toHaveValue(null);
   });
 
   test("deletes a point after confirmation", async () => {
