@@ -1,0 +1,70 @@
+{
+  "code": "S09",
+  "name": "Insufficient combined vehicle capacity",
+  "purpose": "Total waste above both vehicles together, within facility capacity.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.8243178,
+    "longitude": 78.6795602
+  },
+  "facility": {
+    "latitude": 10.8024169,
+    "longitude": 78.7098851,
+    "capacity_kg": 20000
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.7978098,
+      "longitude": 78.712091,
+      "waste_kg": 2000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8007017,
+      "longitude": 78.7297576,
+      "waste_kg": 2000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.794079,
+      "longitude": 78.6914814,
+      "waste_kg": 2000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8035957,
+      "longitude": 78.7026102,
+      "waste_kg": 2000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8079596,
+      "longitude": 78.6958245,
+      "waste_kg": 2000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7843538,
+      "longitude": 78.7192948,
+      "waste_kg": 1500,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7966395,
+      "longitude": 78.7133454,
+      "waste_kg": 1500,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "blocked",
+    "error_codes": [
+      "COMBINED_CAPACITY"
+    ]
+  }
+}

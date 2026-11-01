@@ -1,0 +1,83 @@
+{
+  "code": "S10",
+  "name": "Multiple constraint interaction",
+  "purpose": "Near capacity, spread out, staggered availability and a tight shift.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.7976621,
+    "longitude": 78.7350174
+  },
+  "facility": {
+    "latitude": 10.7873311,
+    "longitude": 78.7450408,
+    "capacity_kg": 11000
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": {
+    "start": "2026-11-09T08:00:00",
+    "end": "2026-11-09T12:30:00"
+  },
+  "points": [
+    {
+      "latitude": 10.7853613,
+      "longitude": 78.6875777,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T08:00:00"
+    },
+    {
+      "latitude": 10.7484955,
+      "longitude": 78.7022319,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T08:15:00"
+    },
+    {
+      "latitude": 10.8195442,
+      "longitude": 78.6984489,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T08:30:00"
+    },
+    {
+      "latitude": 10.8282358,
+      "longitude": 78.6351092,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T08:45:00"
+    },
+    {
+      "latitude": 10.8445181,
+      "longitude": 78.6452965,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T09:00:00"
+    },
+    {
+      "latitude": 10.8219707,
+      "longitude": 78.6771058,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T09:15:00"
+    },
+    {
+      "latitude": 10.7925898,
+      "longitude": 78.7580252,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T09:30:00"
+    },
+    {
+      "latitude": 10.8127398,
+      "longitude": 78.7716052,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T09:45:00"
+    },
+    {
+      "latitude": 10.7517556,
+      "longitude": 78.7185943,
+      "waste_kg": 1180,
+      "available_from": "2026-11-09T10:00:00"
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}

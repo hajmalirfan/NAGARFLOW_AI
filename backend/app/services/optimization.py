@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.clock import utcnow
 from app.core.config import settings
+from app.evaluation.catalog_loader import CATALOG_VERSION
 from app.models.optimization_run import ALGORITHM_GREEDY, ALGORITHM_OR_TOOLS, OptimizationRun
 from app.models.scenario import Scenario
 from app.services.optimizer.greedy import solve_greedy
@@ -170,7 +171,7 @@ def _route_json(
 def run_provenance(scenario: Scenario) -> dict:
     """What produced a result, so it can be reviewed later."""
     return {
-        "catalog_version": None,
+        "catalog_version": CATALOG_VERSION if scenario.evaluation_code else None,
         "road_dataset": Path(settings.road_network_path).name or None,
         "ortools_version": ortools.__version__,
         "time_limit_s": settings.optimizer_time_limit_s,

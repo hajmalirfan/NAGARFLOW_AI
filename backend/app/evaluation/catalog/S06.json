@@ -1,0 +1,65 @@
+{
+  "code": "S06",
+  "name": "Future waste availability",
+  "purpose": "Waste released at different times, so vehicles wait under DEC-003.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.825528,
+    "longitude": 78.7167905
+  },
+  "facility": {
+    "latitude": 10.7844355,
+    "longitude": 78.7023401,
+    "capacity_kg": 20000
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": {
+    "start": "2026-11-09T08:00:00",
+    "end": "2026-11-09T16:00:00"
+  },
+  "points": [
+    {
+      "latitude": 10.8007605,
+      "longitude": 78.7256656,
+      "waste_kg": 1000,
+      "available_from": "2026-11-09T08:00:00"
+    },
+    {
+      "latitude": 10.8161042,
+      "longitude": 78.6920321,
+      "waste_kg": 1100,
+      "available_from": "2026-11-09T08:30:00"
+    },
+    {
+      "latitude": 10.8331143,
+      "longitude": 78.7038667,
+      "waste_kg": 1200,
+      "available_from": "2026-11-09T09:00:00"
+    },
+    {
+      "latitude": 10.7927913,
+      "longitude": 78.7133947,
+      "waste_kg": 900,
+      "available_from": "2026-11-09T10:00:00"
+    },
+    {
+      "latitude": 10.8026283,
+      "longitude": 78.7219885,
+      "waste_kg": 1000,
+      "available_from": "2026-11-09T11:00:00"
+    },
+    {
+      "latitude": 10.8198065,
+      "longitude": 78.7234432,
+      "waste_kg": 1100,
+      "available_from": "2026-11-09T12:00:00"
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}

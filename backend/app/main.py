@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.dashboard import router as dashboard_router
 from app.api.depots import router as depots_router
+from app.api.evaluation import router as evaluation_router
 from app.api.facilities import router as facilities_router
 from app.api.routes import router
 from app.api.scenarios import router as scenarios_router
@@ -63,6 +64,7 @@ app.include_router(router, prefix=API_V1_PREFIX, include_in_schema=False)
 app.include_router(auth_router, prefix=API_V1_PREFIX)
 app.include_router(dashboard_router, prefix=API_V1_PREFIX)
 app.include_router(depots_router, prefix=API_V1_PREFIX)
+app.include_router(evaluation_router, prefix=API_V1_PREFIX)
 app.include_router(facilities_router, prefix=API_V1_PREFIX)
 app.include_router(scenarios_router, prefix=API_V1_PREFIX)
 app.include_router(storage_points_router, prefix=API_V1_PREFIX)

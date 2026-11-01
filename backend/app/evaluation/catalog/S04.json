@@ -1,0 +1,64 @@
+{
+  "code": "S04",
+  "name": "Storage point capacity violation",
+  "purpose": "One point too large for either vehicle, which may never be split.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.8230382,
+    "longitude": 78.7285893
+  },
+  "facility": {
+    "latitude": 10.8106222,
+    "longitude": 78.6945599,
+    "capacity_kg": 20000
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.8182567,
+      "longitude": 78.6942103,
+      "waste_kg": 9000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8309127,
+      "longitude": 78.7099841,
+      "waste_kg": 500,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8088211,
+      "longitude": 78.6811676,
+      "waste_kg": 500,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8138376,
+      "longitude": 78.695923,
+      "waste_kg": 500,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8200509,
+      "longitude": 78.6717014,
+      "waste_kg": 500,
+      "available_from": null
+    },
+    {
+      "latitude": 10.823819,
+      "longitude": 78.7001781,
+      "waste_kg": 500,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "blocked",
+    "error_codes": [
+      "STORAGE_POINT_CAPACITY"
+    ]
+  }
+}

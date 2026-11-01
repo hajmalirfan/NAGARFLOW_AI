@@ -1,0 +1,86 @@
+{
+  "code": "S08",
+  "name": "Route optimization challenge",
+  "purpose": "A layout chosen because nearest-first choices do poorly on it.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.802139,
+    "longitude": 78.7384123
+  },
+  "facility": {
+    "latitude": 10.8487892,
+    "longitude": 78.676455,
+    "capacity_kg": 20000
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.8707227,
+      "longitude": 78.753007,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7304479,
+      "longitude": 78.6369618,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8506356,
+      "longitude": 78.6656941,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.809099,
+      "longitude": 78.6308212,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.862163,
+      "longitude": 78.7540037,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8436701,
+      "longitude": 78.6635414,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8179499,
+      "longitude": 78.6868319,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7770753,
+      "longitude": 78.6950159,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8242507,
+      "longitude": 78.6710239,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7305919,
+      "longitude": 78.6497097,
+      "waste_kg": 1000,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}

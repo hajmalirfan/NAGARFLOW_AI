@@ -1,0 +1,70 @@
+{
+  "code": "S05",
+  "name": "Facility capacity violation",
+  "purpose": "Total waste above the shared facility capacity, within vehicle capacity.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.8219741,
+    "longitude": 78.6998557
+  },
+  "facility": {
+    "latitude": 10.7843974,
+    "longitude": 78.7106803,
+    "capacity_kg": 6500
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.827823,
+      "longitude": 78.7041338,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7811012,
+      "longitude": 78.6770075,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8129927,
+      "longitude": 78.7024049,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8095169,
+      "longitude": 78.7185433,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8209688,
+      "longitude": 78.6790777,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8235697,
+      "longitude": 78.7044391,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8069632,
+      "longitude": 78.7203059,
+      "waste_kg": 1000,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "blocked",
+    "error_codes": [
+      "FACILITY_CAPACITY"
+    ]
+  }
+}

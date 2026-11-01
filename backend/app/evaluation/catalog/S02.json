@@ -1,0 +1,68 @@
+{
+  "code": "S02",
+  "name": "Unequal waste distribution",
+  "purpose": "Varied point quantities that force uneven vehicle loads.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.8220278,
+    "longitude": 78.6701748
+  },
+  "facility": {
+    "latitude": 10.8009769,
+    "longitude": 78.6762524,
+    "capacity_kg": 15000
+  },
+  "vehicle_capacities_kg": [
+    7000,
+    5000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.8124355,
+      "longitude": 78.6787031,
+      "waste_kg": 5000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8107744,
+      "longitude": 78.694185,
+      "waste_kg": 400,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8005678,
+      "longitude": 78.6776203,
+      "waste_kg": 500,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8344916,
+      "longitude": 78.7084491,
+      "waste_kg": 600,
+      "available_from": null
+    },
+    {
+      "latitude": 10.805813,
+      "longitude": 78.6707707,
+      "waste_kg": 700,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7964681,
+      "longitude": 78.7164563,
+      "waste_kg": 800,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7891515,
+      "longitude": 78.6962334,
+      "waste_kg": 900,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}

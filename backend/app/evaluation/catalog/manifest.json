@@ -1,0 +1,17 @@
+{
+  "catalog_version": "1",
+  "synthetic": true,
+  "note": "All waste, capacity and time values are synthetic. Locations are OpenStreetMap road positions, not municipal sites.",
+  "files": {
+    "S01": "7546b80ffbda5888118b3758f0754255281529c1385f52f297e8dc60c19c9ab3",
+    "S02": "87fcdd953d7caaac2f30bc02e14ecb0b5b43e13e40760406e4554af6f0b03b3c",
+    "S03": "dfa87eb00baabddc9eba4a5e714e9783b0f2cd19e24130237a51c4d1d32402af",
+    "S04": "50e788313a2e4c2724237b301e0fa048a0ed9505ba5cc89cbcfea8a56b394da4",
+    "S05": "8e45f1540df22906b2f9f9c20f6bb8c6c4a8db24fb60db64d0c57f3dafcbfad1",
+    "S06": "9d4866facebc3e2f800986291363481721c70305e33145f81382b75c01e44431",
+    "S07": "8cb9f0b94d3f088ec6c497b028626478e8bc87b7dfe677d17ac80fb52eeba364",
+    "S08": "772056f2fb9295cf4de1d7df8500fae557db67e14c8c3d24b181ca9d6545f172",
+    "S09": "48960db673970004cefc2c8482691ae6975ff145f7d2d88ba315587f6b97fc73",
+    "S10": "8c369de90f12fd497a8698b1042ae66a6d45ab337af52374afe4cb5924c00d94"
+  }
+}

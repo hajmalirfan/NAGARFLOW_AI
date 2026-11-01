@@ -1,0 +1,74 @@
+{
+  "code": "S01",
+  "name": "Normal feasible collection",
+  "purpose": "A representative ordinary case for comparing both methods.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.8192895,
+    "longitude": 78.6793373
+  },
+  "facility": {
+    "latitude": 10.7857104,
+    "longitude": 78.6965605,
+    "capacity_kg": 20000
+  },
+  "vehicle_capacities_kg": [
+    7000,
+    7000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.7851347,
+      "longitude": 78.7194226,
+      "waste_kg": 900,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8107565,
+      "longitude": 78.721721,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8333678,
+      "longitude": 78.6779725,
+      "waste_kg": 1100,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7806373,
+      "longitude": 78.6893658,
+      "waste_kg": 1200,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8186708,
+      "longitude": 78.7039411,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8268984,
+      "longitude": 78.7167365,
+      "waste_kg": 1100,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7986034,
+      "longitude": 78.7066518,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8268816,
+      "longitude": 78.690696,
+      "waste_kg": 1100,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}

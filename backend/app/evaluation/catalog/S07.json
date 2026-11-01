@@ -1,0 +1,74 @@
+{
+  "code": "S07",
+  "name": "Geographically distributed points",
+  "purpose": "Mandatory points spread across the study area.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.861933,
+    "longitude": 78.6422781
+  },
+  "facility": {
+    "latitude": 10.7286852,
+    "longitude": 78.6912903,
+    "capacity_kg": 20000
+  },
+  "vehicle_capacities_kg": [
+    7000,
+    7000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.8523947,
+      "longitude": 78.6725589,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8367432,
+      "longitude": 78.651114,
+      "waste_kg": 1200,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7837984,
+      "longitude": 78.6676919,
+      "waste_kg": 900,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8065035,
+      "longitude": 78.7437952,
+      "waste_kg": 1100,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8374805,
+      "longitude": 78.7639924,
+      "waste_kg": 1000,
+      "available_from": null
+    },
+    {
+      "latitude": 10.795992,
+      "longitude": 78.6756293,
+      "waste_kg": 1300,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7777013,
+      "longitude": 78.7688547,
+      "waste_kg": 800,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8073034,
+      "longitude": 78.6920258,
+      "waste_kg": 1000,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}

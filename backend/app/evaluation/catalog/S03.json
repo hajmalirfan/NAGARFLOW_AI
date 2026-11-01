@@ -1,0 +1,74 @@
+{
+  "code": "S03",
+  "name": "High waste quantity stress test",
+  "purpose": "Total waste at 96% of vehicle and facility capacity.",
+  "synthetic": true,
+  "depot": {
+    "latitude": 10.8323878,
+    "longitude": 78.68813
+  },
+  "facility": {
+    "latitude": 10.7991897,
+    "longitude": 78.7022673,
+    "capacity_kg": 12000
+  },
+  "vehicle_capacities_kg": [
+    6000,
+    6000
+  ],
+  "shift": null,
+  "points": [
+    {
+      "latitude": 10.8222642,
+      "longitude": 78.6915059,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7859775,
+      "longitude": 78.6987785,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8008006,
+      "longitude": 78.6993671,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.817673,
+      "longitude": 78.7006527,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8109553,
+      "longitude": 78.7222604,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8295471,
+      "longitude": 78.675928,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.8207067,
+      "longitude": 78.6982057,
+      "waste_kg": 1440,
+      "available_from": null
+    },
+    {
+      "latitude": 10.7838257,
+      "longitude": 78.6768919,
+      "waste_kg": 1440,
+      "available_from": null
+    }
+  ],
+  "expected": {
+    "outcome": "routes",
+    "error_codes": []
+  }
+}
