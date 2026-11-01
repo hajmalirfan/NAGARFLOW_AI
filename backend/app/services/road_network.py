@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import networkx as nx
+from scipy.sparse import csr_matrix
 
 from app.core.config import settings
 from app.services.validation import (
@@ -49,10 +50,20 @@ METRES_PER_DEGREE = 111320
 # snap limit in longitude as well as latitude at any latitude below 60 degrees.
 METRES_PER_CELL_DEGREE = METRES_PER_DEGREE / 2
 
+EARTH_RADIUS_M = 6371008.8
+METRES_PER_SECOND_PER_KMH = 1000 / 3600
+
+# Assumed speeds in km/h. No measured speeds exist for these roads, so travel
+# times are estimates. Distances do not depend on them.
+ROAD_SPEED_KMH = {
+    "motorway": 50, "trunk": 50, "primary": 40, "secondary": 35, "tertiary": 30,
+    "unclassified": 25, "road": 25, "residential": 20, "living_street": 20,
+    "service": 15,
+}
+
 TRUCK_ROADS = frozenset({
-    "motorway", "trunk", "primary", "secondary", "tertiary", "unclassified",
-    "residential", "service", "living_street", "road", "motorway_link",
-    "trunk_link", "primary_link", "secondary_link", "tertiary_link",
+    *ROAD_SPEED_KMH, "motorway_link", "trunk_link", "primary_link", "secondary_link",
+    "tertiary_link",
 })
 REFUSED_ACCESS = frozenset({"private", "no"})
 
@@ -73,6 +84,8 @@ class Segment:
     start: Node
     end: Node
     two_way: bool
+    length_m: float
+    time_s: float
 
 
 @dataclass
@@ -82,6 +95,33 @@ class RoadGraph:
     cells: dict[tuple[int, int], list[int]]
     cell_deg: float
     groups: dict[Node, int]  # nodes sharing a number reach each other
+    nodes: list[Node]
+    node_index: dict[Node, int]
+    distance_csr: csr_matrix  # edge lengths in metres, by node index
+
+
+def road_speed_kmh(highway: str) -> int:
+    """The assumed speed of a road type. A link takes its parent's speed."""
+    return ROAD_SPEED_KMH[highway.removesuffix("_link")]
+
+
+def segment_length_m(start: Node, end: Node) -> float:
+    """Great-circle length, as coordinates here are degrees, not metres."""
+    start_lat, end_lat = math.radians(start[1]), math.radians(end[1])
+    half_lat = (end_lat - start_lat) / 2
+    half_lon = math.radians(end[0] - start[0]) / 2
+    chord = (
+        math.sin(half_lat) ** 2
+        + math.cos(start_lat) * math.cos(end_lat) * math.sin(half_lon) ** 2
+    )
+    return 2 * EARTH_RADIUS_M * math.asin(math.sqrt(chord))
+
+
+def _add_edge(graph: nx.DiGraph, start: Node, end: Node, length_m: float, time_s: float) -> None:
+    """Add a road edge. Where ways share a node pair, the shorter one stands."""
+    current = graph.get_edge_data(start, end)
+    if current is None or length_m < current["length_m"]:
+        graph.add_edge(start, end, length_m=length_m, time_s=time_s)
 
 
 def _parse_line(blob: bytes) -> list[Node]:
@@ -172,13 +212,16 @@ def load_road_graph(path: Path, snap_max_m: float) -> RoadGraph:
                 if direction == "reverse":
                     nodes.reverse()
                 two_way = direction == "both"
+                speed = road_speed_kmh(highway) * METRES_PER_SECOND_PER_KMH
                 for start, end in zip(nodes, nodes[1:]):
                     if start == end:
                         continue
-                    graph.add_edge(start, end)
+                    length_m = segment_length_m(start, end)
+                    time_s = length_m / speed
+                    _add_edge(graph, start, end, length_m, time_s)
                     if two_way:
-                        graph.add_edge(end, start)
-                    segment = Segment(start, end, two_way)
+                        _add_edge(graph, end, start, length_m, time_s)
+                    segment = Segment(start, end, two_way, length_m, time_s)
                     segments.append(segment)
                     _index_segment(cells, len(segments) - 1, segment, cell_deg)
         finally:
@@ -195,13 +238,22 @@ def load_road_graph(path: Path, snap_max_m: float) -> RoadGraph:
         for number, members in enumerate(nx.strongly_connected_components(graph))
         for node in members
     }
+    nodes = list(graph.nodes)
+    node_index = {node: index for index, node in enumerate(nodes)}
+    edges = [
+        (node_index[start], node_index[end], data["length_m"])
+        for start, end, data in graph.edges(data=True)
+    ]
+    sources, targets, lengths = zip(*edges)
+    distance_csr = csr_matrix((lengths, (sources, targets)), shape=(len(nodes), len(nodes)))
     return RoadGraph(
-        graph=graph, segments=segments, cells=cells, cell_deg=cell_deg, groups=groups
+        graph=graph, segments=segments, cells=cells, cell_deg=cell_deg, groups=groups,
+        nodes=nodes, node_index=node_index, distance_csr=distance_csr,
     )
 
 
 @dataclass(frozen=True)
-class _Snap:
+class Snap:
     """Where a location attaches to the road network."""
 
     segment_index: int
@@ -215,7 +267,7 @@ class GeoPackageRoadNetwork:
         self.road_graph = road_graph
         self.snap_max_m = snap_max_m
 
-    def _snap(self, location: RoadLocation) -> _Snap | None:
+    def snap(self, location: RoadLocation) -> Snap | None:
         """Attach a location to its nearest segment within the limit."""
         road_graph = self.road_graph
         centre_x, centre_y = _cell(location.longitude, location.latitude, road_graph.cell_deg)
@@ -249,7 +301,7 @@ class GeoPackageRoadNetwork:
 
         if best is None or best[0] > self.snap_max_m:
             return None
-        return _Snap(segment_index=best[1], fraction=best[2])
+        return Snap(segment_index=best[1], fraction=best[2])
 
     def check(
         self, depot: RoadLocation, points: list[RoadLocation], facility: RoadLocation
@@ -265,13 +317,13 @@ class GeoPackageRoadNetwork:
         # By position, not name: codes are only unique within their own
         # table, so a depot and a storage point may share one.
         locations = [depot, *points, facility]
-        snaps = [self._snap(location) for location in locations]
+        snaps = [self.snap(location) for location in locations]
         too_far = list(dict.fromkeys(
             location.name for location, snap in zip(locations, snaps) if snap is None
         ))
         reachable: dict[Node, set[Node]] = {}
 
-        def connected(source: _Snap, target: _Snap) -> bool:
+        def connected(source: Snap, target: Snap) -> bool:
             # Two spots on one segment: on a one-way road the end nodes alone
             # would say a dead end cannot reach a spot just ahead on it.
             if source.segment_index == target.segment_index and (
