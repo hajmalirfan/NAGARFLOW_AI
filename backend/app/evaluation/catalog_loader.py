@@ -16,6 +16,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.evaluation import CATALOG_CODE_PREFIX
 from app.models.depot import Depot
 from app.models.processing_facility import ProcessingFacility
 from app.models.scenario import Scenario, scenario_depots, scenario_facilities
@@ -44,17 +45,21 @@ def _moment(value: str | None) -> datetime | None:
     return None if value is None else datetime.fromisoformat(value)
 
 
-def _reuse_or_add(db: Session, model: type, code_field: str, code: str, **values) -> object:
-    record = db.scalar(select(model).where(getattr(model, code_field) == code))
+def _reuse_or_add(
+    db: Session, model: type, code_field: str, code: str, user_id: int, **values
+) -> object:
+    record = db.scalar(
+        select(model).where(getattr(model, code_field) == code, model.user_id == user_id)
+    )
     if record is None:
-        record = model(**{code_field: code}, **values)
+        record = model(**{code_field: code}, user_id=user_id, **values)
         db.add(record)
         db.flush()
     return record
 
 
 def _create_case(db: Session, user: User, case: dict) -> Scenario:
-    prefix = f"SYNTH-U{user.id}-{case['code']}"
+    prefix = f"{CATALOG_CODE_PREFIX}{user.id}-{case['code']}"
     label = f"SYNTH-{case['code']}"
     shift = case["shift"] or {}
     scenario = Scenario(
@@ -71,11 +76,11 @@ def _create_case(db: Session, user: User, case: dict) -> Scenario:
     db.flush()
 
     depot = _reuse_or_add(
-        db, Depot, "code", f"{prefix}-D", user_id=user.id, name=f"{label} Depot",
+        db, Depot, "code", f"{prefix}-D", user.id, name=f"{label} Depot",
         latitude=case["depot"]["latitude"], longitude=case["depot"]["longitude"],
     )
     facility = _reuse_or_add(
-        db, ProcessingFacility, "facility_code", f"{prefix}-F", user_id=user.id,
+        db, ProcessingFacility, "facility_code", f"{prefix}-F", user.id,
         name=f"{label} Facility", latitude=case["facility"]["latitude"],
         longitude=case["facility"]["longitude"],
         capacity_kg=Decimal(str(case["facility"]["capacity_kg"])), status="active",
@@ -87,7 +92,7 @@ def _create_case(db: Session, user: User, case: dict) -> Scenario:
 
     scenario.selected_vehicles = [
         _reuse_or_add(
-            db, Vehicle, "vehicle_number", f"{prefix}-V{index}", user_id=user.id,
+            db, Vehicle, "vehicle_number", f"{prefix}-V{index}", user.id,
             name=f"{label} Vehicle {index}", vehicle_type="Truck",
             capacity_kg=Decimal(str(capacity)), depot_id=depot.id, status="available",
             is_available=True, start_latitude=depot.latitude, start_longitude=depot.longitude,
@@ -96,7 +101,7 @@ def _create_case(db: Session, user: User, case: dict) -> Scenario:
     ]
     scenario.selected_storage_points = [
         _reuse_or_add(
-            db, StoragePoint, "point_code", f"{prefix}-P{index:02d}", user_id=user.id,
+            db, StoragePoint, "point_code", f"{prefix}-P{index:02d}", user.id,
             name=f"{label} Point {index}", latitude=point["latitude"],
             longitude=point["longitude"], waste_kg=Decimal(str(point["waste_kg"])),
             availability_status="available", available_from=_moment(point["available_from"]),

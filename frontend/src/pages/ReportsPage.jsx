@@ -13,6 +13,7 @@ const STATE_TEXT = {
   not_run: "Not run",
   blocked: "Blocked",
   ran: "Ran",
+  out_of_date: "Out of date",
 };
 
 function MethodCell({ method }) {
@@ -46,6 +47,13 @@ function ReportRow({ row }) {
         {row.errors.map((error) => (
           <p className="panel-note" key={error.code}>{error.message}</p>
         ))}
+        {row.state === "out_of_date" && (
+          <p className="panel-note">A record changed after this run. Run it again.</p>
+        )}
+        {row.edited && <p className="panel-note">Edited since loading.</p>}
+        {row.matches_expected === false && (
+          <p className="panel-note">Differs from the expected outcome.</p>
+        )}
       </td>
       <MethodCell method={row.greedy} />
       <MethodCell method={row.or_tools} />
@@ -158,8 +166,9 @@ export default function ReportsPage() {
       {report && (
         <>
           <p className="optimization-difference">
-            {report.summary.ran} ran, {report.summary.blocked} blocked, {report.summary.not_run} not
-            run, {report.summary.not_loaded} not loaded.
+            {report.summary.ran} ran, {report.summary.out_of_date} out of date,{" "}
+            {report.summary.blocked} blocked, {report.summary.not_run} not run,{" "}
+            {report.summary.not_loaded} not loaded.
             {report.summary.mean_difference_m !== null &&
               ` Across the ${report.summary.both_routes} cases where both found routes, Greedy minus OR-Tools averages ${formatKm(report.summary.mean_difference_m)} (${report.summary.mean_difference_pct}%).`}
           </p>

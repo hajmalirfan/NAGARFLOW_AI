@@ -225,9 +225,10 @@ that is not valid returns a 409 with the validation report.
 ## Evaluation report
 
 **Reports** runs the S01–S10 evaluation cases. **Load evaluation scenarios**
-creates them as ordinary records named `SYNTH-`, and adds about 10 depots, 10
-facilities, 20 vehicles and 76 storage points to your lists. Pressing it again
-creates nothing new. **Run all** optimizes each case in turn, which takes about
+creates them as records named `SYNTH-`, and adds about 10 depots, 10 facilities,
+20 vehicles and 76 storage points to your lists. They stay out of the dashboard
+totals and the one-active-depot rule, and codes starting `SYNTH-U` are reserved
+for them. Pressing it again creates nothing new. **Run all** optimizes each case in turn, which takes about
 a minute and a half. **Download CSV** saves the same rows, and printing the page
 gives a PDF.
 
@@ -238,7 +239,11 @@ OpenStreetMap road positions, not municipal sites. The cases live in
 
 A case that fails validation shows as **Blocked** with its reason, even if an
 older run exists, and never shows a distance. S04, S05 and S09 are blocked by
-design. A difference appears only where both methods found routes.
+design once they have been checked. A run older than a change to its records
+shows as **Out of date** and leaves the averages until it is run again. A case
+whose inputs no longer match the catalogue is marked as edited, and an outcome
+other than the expected one is flagged. A difference appears only where both
+methods found routes.
 
 ## Optimization history
 

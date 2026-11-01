@@ -5,7 +5,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, reject_reserved_code
 from app.models import ProcessingFacility, Scenario, User
 from app.models.scenario import scenario_facilities
 from app.schemas.facility import (
@@ -118,6 +118,7 @@ def create_facility(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> FacilityResponse:
+    reject_reserved_code(payload.facility_code)
     _validate_facility_code(db, payload.facility_code)
     values = payload.model_dump()
     facility = ProcessingFacility(
@@ -202,6 +203,7 @@ def update_facility(
     user: User = Depends(get_current_user),
 ) -> FacilityResponse:
     facility = _get_owned_facility(db, facility_id, user)
+    reject_reserved_code(payload.facility_code, facility.facility_code)
     _validate_facility_code(db, payload.facility_code, facility.id)
 
     scenarios = _linked_scenarios(db, facility)

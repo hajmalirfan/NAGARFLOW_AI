@@ -39,6 +39,8 @@ function row(number, overrides = {}) {
     difference_pct: null,
     input_hash: null,
     provenance: null,
+    edited: false,
+    matches_expected: null,
     ...overrides,
   };
 }
@@ -191,6 +193,28 @@ describe("Reports page", () => {
     expect(rowOf("S01")).toHaveTextContent("2.50 km (20%)");
     expect(rowOf("S02")).toHaveTextContent("No route found");
     expect(rowOf("S02")).not.toHaveTextContent("%");
+  });
+
+  test("it marks an out of date run", async () => {
+    api.getEvaluationReport.mockResolvedValue(report({
+      1: { state: "out_of_date", greedy: METHOD, or_tools: METHOD },
+    }));
+    renderPage();
+    await screen.findByText("SYNTH-S01 Case");
+
+    expect(rowOf("S01")).toHaveTextContent("Out of date");
+    expect(rowOf("S01")).toHaveTextContent("changed after this run");
+  });
+
+  test("it flags an edited case and an unexpected outcome", async () => {
+    api.getEvaluationReport.mockResolvedValue(report({
+      1: { state: "ran", greedy: METHOD, or_tools: METHOD, edited: true, matches_expected: false },
+    }));
+    renderPage();
+    await screen.findByText("SYNTH-S01 Case");
+
+    expect(rowOf("S01")).toHaveTextContent("Edited since loading");
+    expect(rowOf("S01")).toHaveTextContent("Differs from the expected outcome");
   });
 
   test("it never says optimal", async () => {

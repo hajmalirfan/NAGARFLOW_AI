@@ -6,9 +6,10 @@ with a placeholder figure: when there is no data the result is genuinely
 zero, and the facility card reports that it is not configured.
 """
 
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import ColumnElement, Select, and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.evaluation import CATALOG_CODE_PREFIX
 from app.models.scenario import scenario_storage_points, scenario_vehicles
 from app.models.optimization_run import (
     FAILED_STATUSES,
@@ -38,7 +39,12 @@ STORAGE_POINT_LIMIT = 10
 
 def _owned_scenarios(user: User) -> Select[tuple[int]]:
     """Scenario ids belonging to this user, used to scope every total."""
-    return select(Scenario.id).where(Scenario.user_id == user.id)
+    return select(Scenario.id).where(_real_scenarios(user))
+
+
+def _real_scenarios(user: User) -> ColumnElement[bool]:
+    """This user's scenarios, leaving out the synthetic evaluation cases."""
+    return and_(Scenario.user_id == user.id, Scenario.evaluation_code.is_(None))
 
 
 def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
@@ -46,7 +52,7 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
 
     scenarios = db.scalars(
         select(Scenario)
-        .where(Scenario.user_id == user.id)
+        .where(_real_scenarios(user))
         .order_by(Scenario.created_at.desc(), Scenario.id.desc())
     ).all()
 
@@ -59,7 +65,8 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
                     StoragePoint.user_id.is_(None),
                     StoragePoint.scenario_id.in_(scenario_ids),
                 ),
-            )
+            ),
+            StoragePoint.point_code.not_like(f"{CATALOG_CODE_PREFIX}%"),
         )
         .order_by(StoragePoint.id)
     ).all()
@@ -67,7 +74,7 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
     selected_vehicle_ids = (
         select(scenario_vehicles.c.vehicle_id)
         .join(Scenario, Scenario.id == scenario_vehicles.c.scenario_id)
-        .where(Scenario.user_id == user.id)
+        .where(_real_scenarios(user))
     )
     vehicles = db.scalars(
         select(Vehicle)
@@ -88,7 +95,8 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
                     ProcessingFacility.user_id.is_(None),
                     ProcessingFacility.scenario_id.in_(scenario_ids),
                 ),
-            )
+            ),
+            ProcessingFacility.facility_code.not_like(f"{CATALOG_CODE_PREFIX}%"),
         )
     ).all()
 

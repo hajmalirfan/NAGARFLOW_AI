@@ -8,9 +8,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.evaluation.catalog_loader import load_catalog
 from app.models import OptimizationRun, Scenario, ScenarioValidation, User
+from app.services import optimization
 from app.services.evaluation_report import build_report, report_csv
+from app.services.optimization import optimize_scenario
+from test_optimization import line_costs, straight_line
 from test_validation import auth_headers  # noqa: F401
 
 REPORT_URL = "/api/v1/evaluation/report"
@@ -221,3 +225,83 @@ def test_report_shows_only_your_own_runs(
 def test_report_needs_authentication(client: TestClient) -> None:
     assert client.get(REPORT_URL).status_code == 401
     assert client.get(f"{REPORT_URL}.csv").status_code == 401
+
+
+def test_a_changed_record_marks_the_run_out_of_date(
+    db_session: Session, user: User, cases: dict
+) -> None:
+    add_batch(db_session, cases["S01"], "a")
+    add_batch(db_session, cases["S02"], "b", greedy=1000.0, or_tools=500.0)
+    cases["S01"].selected_storage_points[0].waste_kg = 1
+    db_session.commit()
+
+    report = build_report(db_session, user)
+
+    assert row_for(report, "S01")["state"] == "out_of_date"
+    assert report["summary"]["out_of_date"] == 1
+    assert report["summary"]["both_routes"] == 1
+    assert report["summary"]["mean_difference_m"] == 500
+
+
+def test_a_new_run_clears_out_of_date(db_session: Session, user: User, cases: dict) -> None:
+    add_batch(db_session, cases["S01"], "a")
+    cases["S01"].selected_storage_points[0].waste_kg = 1
+    db_session.commit()
+    add_batch(db_session, cases["S01"], "b")
+
+    assert row_for(build_report(db_session, user), "S01")["state"] == "ran"
+
+
+def test_an_edited_case_is_flagged(db_session: Session, user: User, cases: dict) -> None:
+    cases["S02"].selected_storage_points[0].latitude = 11.3
+    db_session.commit()
+
+    report = build_report(db_session, user)
+
+    assert row_for(report, "S02")["edited"] is True
+    assert row_for(report, "S01")["edited"] is False
+
+
+def test_outcome_is_compared_with_the_catalogue(
+    db_session: Session, user: User, cases: dict
+) -> None:
+    add_batch(db_session, cases["S01"], "a")
+    add_batch(db_session, cases["S02"], "b", or_tools=None)
+    add_batch(db_session, cases["S04"], "c")
+    add_validation(db_session, cases["S03"], passed=False)
+    add_validation(db_session, cases["S05"], passed=False)
+
+    report = build_report(db_session, user)
+
+    assert row_for(report, "S01")["matches_expected"] is True
+    assert row_for(report, "S02")["matches_expected"] is False
+    assert row_for(report, "S03")["matches_expected"] is False
+    assert row_for(report, "S04")["matches_expected"] is False
+    assert row_for(report, "S05")["matches_expected"] is True
+    assert row_for(report, "S06")["matches_expected"] is None
+
+
+def test_csv_shows_edited_and_expected(db_session: Session, user: User, cases: dict) -> None:
+    cases["S01"].selected_storage_points[0].latitude = 11.3
+    db_session.commit()
+    add_batch(db_session, cases["S01"], "a")
+
+    row = rows_of(report_csv(build_report(db_session, user)))[0]
+
+    assert row["edited"] == "True"
+    assert row["matches_expected"] == "True"
+
+
+def test_a_real_run_is_current_and_unedited(
+    db_session: Session, user: User, cases: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(optimization, "build_cost_matrix", line_costs)
+    monkeypatch.setattr(optimization, "route_geometry", straight_line)
+    monkeypatch.setattr(settings, "optimizer_time_limit_s", 1)
+
+    optimize_scenario(db_session, cases["S01"], object())
+
+    row = row_for(build_report(db_session, user), "S01")
+    assert row["state"] == "ran"
+    assert row["edited"] is False
+    assert row["matches_expected"] is True

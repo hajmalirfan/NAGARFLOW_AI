@@ -28,7 +28,7 @@ class ReportRow(BaseModel):
     code: str
     name: str
     purpose: str
-    state: Literal["not_loaded", "not_run", "blocked", "ran"]
+    state: Literal["not_loaded", "not_run", "blocked", "ran", "out_of_date"]
     scenario_id: int | None
     errors: list[dict]
     greedy: MethodOutcome | None
@@ -37,6 +37,8 @@ class ReportRow(BaseModel):
     difference_pct: float | None
     input_hash: str | None
     provenance: dict | None
+    edited: bool
+    matches_expected: bool | None
 
 
 class ReportSummary(BaseModel):
@@ -44,6 +46,7 @@ class ReportSummary(BaseModel):
     not_run: int
     blocked: int
     ran: int
+    out_of_date: int
     both_routes: int
     mean_difference_m: float | None
     mean_difference_pct: float | None

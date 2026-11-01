@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, reject_reserved_code
 from app.models import Depot, Scenario, User, Vehicle
 from app.models.scenario import scenario_vehicles
 from app.schemas.vehicle import VehicleResponse, VehicleWrite
@@ -110,6 +110,7 @@ def create_vehicle(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Vehicle:
+    reject_reserved_code(payload.vehicle_number)
     depot = _validate_write(db, payload, user)
     vehicle = Vehicle(
         user_id=user.id,
@@ -163,6 +164,7 @@ def update_vehicle(
     user: User = Depends(get_current_user),
 ) -> Vehicle:
     vehicle = _get_owned_vehicle(db, vehicle_id, user)
+    reject_reserved_code(payload.vehicle_number, vehicle.vehicle_number)
     depot = _validate_write(db, payload, user, vehicle.id)
     linked_scenarios = _linked_scenarios(db, vehicle)
     if linked_scenarios and (

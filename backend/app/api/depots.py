@@ -3,7 +3,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, reject_reserved_code
+from app.evaluation import CATALOG_CODE_PREFIX
 from app.models import Depot, Scenario, User, Vehicle
 from app.models.scenario import scenario_depots
 from app.schemas.depot import DepotResponse, DepotWrite
@@ -37,6 +38,7 @@ def _validate_depot(
             select(Depot.id).where(
                 Depot.user_id == user.id,
                 Depot.is_active.is_(True),
+                Depot.code.not_like(f"{CATALOG_CODE_PREFIX}%"),
                 Depot.id != depot_id if depot_id is not None else True,
             )
         )
@@ -53,6 +55,7 @@ def create_depot(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> Depot:
+    reject_reserved_code(payload.code)
     _validate_depot(db, payload, user)
     depot = Depot(user_id=user.id, **payload.model_dump())
     db.add(depot)
@@ -88,6 +91,7 @@ def update_depot(
     user: User = Depends(get_current_user),
 ) -> Depot:
     depot = _get_owned_depot(db, depot_id, user)
+    reject_reserved_code(payload.code, depot.code)
     _validate_depot(db, payload, user, depot.id)
     for field, value in payload.model_dump().items():
         setattr(depot, field, value)

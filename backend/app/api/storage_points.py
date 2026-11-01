@@ -5,7 +5,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, reject_reserved_code
 from app.models import Scenario, StoragePoint, User
 from app.models.scenario import scenario_storage_points
 from app.schemas.storage_point import StoragePointResponse, StoragePointWrite
@@ -134,6 +134,7 @@ def create_storage_point(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> StoragePointResponse:
+    reject_reserved_code(payload.point_code)
     _validate_point_code(db, payload.point_code)
     values = payload.model_dump()
     point = StoragePoint(
@@ -182,6 +183,7 @@ def update_storage_point(
     user: User = Depends(get_current_user),
 ) -> StoragePointResponse:
     point = _get_owned_point(db, point_id, user)
+    reject_reserved_code(payload.point_code, point.point_code)
     _validate_point_code(db, payload.point_code, point.id)
     _validate_linked_scenario_capacity(
         db, point, payload.waste_quantity_kg, payload.availability_status
