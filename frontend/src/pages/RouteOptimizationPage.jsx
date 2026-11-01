@@ -166,6 +166,7 @@ export default function RouteOptimizationPage() {
           <span>Scenario</span>
           <select
             value={scenarioId}
+            disabled={running}
             onChange={(event) => setSearchParams(
               event.target.value ? { scenario: event.target.value } : {},
             )}

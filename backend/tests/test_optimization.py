@@ -352,3 +352,40 @@ def test_rows_without_a_batch_are_ignored(
     response = client.get(f"{SCENARIOS}/{scenario.id}/optimization", headers=auth_headers)
 
     assert response.status_code == 404
+
+
+def test_a_point_sharing_the_facility_code_is_still_routed(
+    client: TestClient, registered_user: dict[str, str], db_session: Session, fake_roads: None
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+    point = optimization._sorted_points(scenario)[0]
+    facility = optimization._scenario_facility(scenario)
+    facility.facility_code = point.point_code
+    facility.latitude = point.latitude + 0.01
+    db_session.commit()
+
+    optimize_scenario(db_session, scenario, object())
+
+    greedy, or_tools = saved(db_session)
+    assert greedy.status == or_tools.status == "feasible"
+    stops = [stop for route in greedy.routes for stop in route["stops"]]
+    shared = next(stop for stop in stops if stop["code"] == point.point_code)
+    assert shared["latitude"] == pytest.approx(float(point.latitude))
+
+
+def test_a_zero_total_distance_can_be_compared(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_distance(network: object, locations: list) -> CostMatrix:
+        zeros = [[0] * len(locations) for _ in locations]
+        return CostMatrix([loc.name for loc in locations], zeros, [list(row) for row in zeros])
+
+    monkeypatch.setattr(optimization, "build_cost_matrix", no_distance)
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    body = optimize(client, auth_headers, scenario.id).json()
+
+    assert (body["difference_m"], body["difference_pct"]) == (0, 0)
+    latest = client.get(f"/api/v1/scenarios/{scenario.id}/optimization", headers=auth_headers)
+    assert latest.status_code == 200

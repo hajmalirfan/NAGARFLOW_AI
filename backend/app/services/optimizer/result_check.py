@@ -13,7 +13,8 @@ from app.services.optimizer.types import HAS_ROUTES, MethodResult, RoutingProble
 def _check_route(problem: RoutingProblem, route: VehicleRoute, issues: list[str]) -> int:
     """Check one route, adding any problems. Returns its true distance."""
     label = f"Vehicle {route.vehicle_id}"
-    index_of = {name: index for index, name in enumerate(problem.names)}
+    # Stops are always points, and a depot or facility may share a point's code.
+    index_of = {problem.names[index]: index for index in problem.points}
 
     if route.vehicle_id not in problem.vehicle_ids:
         issues.append(f"{label} is not in this scenario.")

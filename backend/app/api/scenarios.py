@@ -429,7 +429,10 @@ def _comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
     difference_m = difference_pct = None
     if greedy.total_distance_m is not None and or_tools.total_distance_m is not None:
         difference_m = greedy.total_distance_m - or_tools.total_distance_m
-        difference_pct = round(difference_m / greedy.total_distance_m * 100, 2)
+        difference_pct = (
+            round(difference_m / greedy.total_distance_m * 100, 2)
+            if greedy.total_distance_m else 0.0
+        )
 
     return OptimizationComparison(
         scenario_id=greedy.scenario_id,

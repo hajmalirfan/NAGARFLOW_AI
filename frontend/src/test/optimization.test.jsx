@@ -170,6 +170,15 @@ describe("Route Optimization page", () => {
     expect(screen.getByTestId("route-map")).toHaveTextContent("Greedy truck");
   });
 
+  test("it locks the scenario choice while a run is in progress", async () => {
+    api.optimizeScenario.mockReturnValue(new Promise(() => {}));
+    renderApp();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Run optimization" }));
+
+    expect(await screen.findByLabelText("Scenario")).toBeDisabled();
+  });
+
   test("it shows each vehicle's stops with waiting time", async () => {
     await runOptimization();
 

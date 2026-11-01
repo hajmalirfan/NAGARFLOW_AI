@@ -171,7 +171,7 @@ def optimize_scenario(
     """Run Greedy and OR-Tools on identical inputs and save both."""
     locations = scenario_locations(scenario)
     problem = build_problem(scenario, build_cost_matrix(network, locations))
-    by_name = {location.name: location for location in locations}
+    points_by_code = {location.name: location for location in locations[1:-1]}
     input_hash = problem_hash(problem)
     batch_id = uuid.uuid4().hex
 
@@ -187,7 +187,7 @@ def optimize_scenario(
     for algorithm, solver in methods:
         result = run_method(solver, problem)
         routes = [
-            _route_json(scenario, route, by_name, locations[0], locations[-1], network)
+            _route_json(scenario, route, points_by_code, locations[0], locations[-1], network)
             for route in result.routes
         ]
         run = OptimizationRun(
