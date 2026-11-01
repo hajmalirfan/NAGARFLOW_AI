@@ -179,7 +179,7 @@ is local only, so `*.gpkg` is ignored by git. Without a usable file, scenarios
 stay `incomplete` and optimization stays blocked.
 
 The network loads once, on the first validation after the server starts,
-which takes about four seconds. After that a check takes milliseconds.
+which takes about nine seconds. After that a check takes milliseconds.
 
 A location must be within `ROAD_SNAP_MAX_M` metres of a usable road. The
 default of 200 is an assumption, not a measured figure. Beyond it the location
@@ -191,6 +191,36 @@ Roads marked private or closed to motor vehicles are excluded, and roads with
 no access tag count as usable. Truck size and weight limits are not checked,
 and the dataset has no turn restrictions, so a passing check means a route
 exists on the network, not that a truck may legally take it.
+
+## Route optimization
+
+**Route Optimization** runs two methods on identical inputs for a valid
+scenario: a Greedy baseline and Google OR-Tools. Both results are saved and
+shown side by side, and each passes through an independent checker before it
+is reported. OR-Tools searches for `OPTIMIZER_TIME_LIMIT_S` seconds, 10 by
+default, and reports the best route it found, not a proven optimum.
+
+A scenario may set a shift start and end. Each storage point may set when its
+waste becomes available. Under decision DEC-003, a vehicle that arrives early
+waits at the point until the waste is ready. A point that becomes available
+after the shift ends fails validation.
+
+Distances come from the road network. Travel times are estimates from assumed
+speeds in km/h, because no measured speeds exist for these roads: motorway and
+trunk 50, primary 40, secondary 35, tertiary 30, unclassified 25, residential
+20, service 15.
+
+| Status | Meaning |
+| --- | --- |
+| `feasible` | Best route found, and it passed the checker. |
+| `optimal` | Proven best route, and it passed the checker. |
+| `no_solution` | The method found no route, though one may exist. |
+| `infeasible` | No route can meet the limits. |
+| `timeout` | Time ran out before any route was found. |
+| `invalid_result` | The checker rejected the route, so it is not shown. |
+
+Only `feasible` and `optimal` results carry a distance. Optimizing a scenario
+that is not valid returns a 409 with the validation report.
 
 ## Forgotten passwords
 
