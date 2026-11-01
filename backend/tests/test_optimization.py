@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
-from app.db.migrations import upgrade_legacy_optimization_run_schema
+from app.db.migrations import (
+    upgrade_legacy_evaluation_schema,
+    upgrade_legacy_optimization_run_schema,
+)
 from app.models import OptimizationRun
 from app.services import optimization
 from app.services.optimization import (
@@ -389,3 +392,34 @@ def test_a_zero_total_distance_can_be_compared(
     assert (body["difference_m"], body["difference_pct"]) == (0, 0)
     latest = client.get(f"/api/v1/scenarios/{scenario.id}/optimization", headers=auth_headers)
     assert latest.status_code == 200
+
+
+def test_upgrade_adds_evaluation_columns() -> None:
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE scenarios (id INTEGER PRIMARY KEY)"))
+        connection.execute(text("CREATE TABLE optimization_runs (id INTEGER PRIMARY KEY)"))
+
+    upgrade_legacy_evaluation_schema(engine)
+    upgrade_legacy_evaluation_schema(engine)
+
+    inspector = inspect(engine)
+    assert "evaluation_code" in {c["name"] for c in inspector.get_columns("scenarios")}
+    assert "provenance" in {c["name"] for c in inspector.get_columns("optimization_runs")}
+
+
+def test_runs_record_provenance(
+    client: TestClient, registered_user: dict[str, str], db_session: Session, fake_roads: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "road_network_path", "C:/data/secret/roads.gpkg")
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    optimize_scenario(db_session, scenario, object())
+
+    for run in saved(db_session):
+        assert run.provenance["time_limit_s"] == 1
+        assert run.provenance["snap_limit_m"] == settings.road_snap_max_m
+        assert run.provenance["ortools_version"]
+        assert run.provenance["road_dataset"] == "roads.gpkg"
+        assert run.provenance["catalog_version"] is None

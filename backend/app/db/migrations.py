@@ -809,6 +809,24 @@ def upgrade_legacy_scenario_schema(engine: Engine) -> None:
                 )
 
 
+def upgrade_legacy_evaluation_schema(engine: Engine) -> None:
+    """Add the evaluation columns to tables created before they existed."""
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    additions = (
+        ("scenarios", "evaluation_code", "VARCHAR(3)"),
+        ("optimization_runs", "provenance", "JSON"),
+    )
+    with engine.begin() as connection:
+        for table, column, column_type in additions:
+            if table not in tables:
+                continue
+            if column not in {existing["name"] for existing in inspector.get_columns(table)}:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"
+                )
+
+
 def upgrade_legacy_optimization_run_schema(engine: Engine) -> None:
     """Let a run have no distance, and add the fields real runs record."""
     inspector = inspect(engine)

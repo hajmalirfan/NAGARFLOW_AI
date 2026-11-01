@@ -37,6 +37,8 @@ class OptimizationRun(Base):
     message: Mapped[str | None] = mapped_column(Text, default=None)
     routes: Mapped[list | None] = mapped_column(JSON, default=None)
     input_hash: Mapped[str | None] = mapped_column(String(64), default=None)
+    # What produced this result: catalogue, road data, solver and limits.
+    provenance: Mapped[dict | None] = mapped_column(JSON, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     scenario: Mapped["Scenario"] = relationship(back_populates="optimization_runs")  # noqa: F821

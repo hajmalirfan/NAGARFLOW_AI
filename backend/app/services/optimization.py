@@ -14,7 +14,9 @@ from collections.abc import Callable
 from dataclasses import asdict
 from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 
+import ortools
 from sqlalchemy.orm import Session
 
 from app.core.clock import utcnow
@@ -165,6 +167,17 @@ def _route_json(
     }
 
 
+def run_provenance(scenario: Scenario) -> dict:
+    """What produced a result, so it can be reviewed later."""
+    return {
+        "catalog_version": None,
+        "road_dataset": Path(settings.road_network_path).name or None,
+        "ortools_version": ortools.__version__,
+        "time_limit_s": settings.optimizer_time_limit_s,
+        "snap_limit_m": settings.road_snap_max_m,
+    }
+
+
 def optimize_scenario(
     db: Session, scenario: Scenario, network: object
 ) -> list[OptimizationRun]:
@@ -174,6 +187,7 @@ def optimize_scenario(
     points_by_code = {location.name: location for location in locations[1:-1]}
     input_hash = problem_hash(problem)
     batch_id = uuid.uuid4().hex
+    provenance = run_provenance(scenario)
 
     methods = (
         (ALGORITHM_GREEDY, solve_greedy),
@@ -200,6 +214,7 @@ def optimize_scenario(
             message=result.message,
             routes=routes,
             input_hash=input_hash,
+            provenance=provenance,
         )
         db.add(run)
         runs.append(run)

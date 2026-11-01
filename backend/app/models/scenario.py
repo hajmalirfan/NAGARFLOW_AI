@@ -70,6 +70,8 @@ class Scenario(Base):
     # so a vehicle may wait for waste as long as it needs.
     shift_start: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     shift_end: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    # S01 to S10 for a synthetic evaluation case, otherwise null.
+    evaluation_code: Mapped[str | None] = mapped_column(String(3), default=None, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
