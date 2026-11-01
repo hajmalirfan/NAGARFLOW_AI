@@ -81,6 +81,7 @@ class RoadGraph:
     segments: list[Segment]
     cells: dict[tuple[int, int], list[int]]
     cell_deg: float
+    groups: dict[Node, int]  # nodes sharing a number reach each other
 
 
 def _parse_line(blob: bytes) -> list[Node]:
@@ -187,7 +188,14 @@ def load_road_graph(path: Path, snap_max_m: float) -> RoadGraph:
         logger.warning("Skipped %s malformed road rows in %s.", skipped, path)
     if not segments:
         raise RoadDataError(f"No usable roads found in {path}.")
-    return RoadGraph(graph=graph, segments=segments, cells=cells, cell_deg=cell_deg)
+    groups = {
+        node: number
+        for number, members in enumerate(nx.strongly_connected_components(graph))
+        for node in members
+    }
+    return RoadGraph(
+        graph=graph, segments=segments, cells=cells, cell_deg=cell_deg, groups=groups
+    )
 
 
 @dataclass(frozen=True)
@@ -250,6 +258,7 @@ class GeoPackageRoadNetwork:
         vehicle may visit them in any order), and every point to the
         facility. The facility needs no route back, as the trip ends there.
         """
+        graph, groups = self.road_graph.graph, self.road_graph.groups
         segments = self.road_graph.segments
         snaps = {
             location.name: self._snap(location) for location in (depot, *points, facility)
@@ -265,9 +274,12 @@ class GeoPackageRoadNetwork:
             ):
                 return True
             leaves_by = segments[source.segment_index].end
+            enters_by = segments[target.segment_index].start
+            if groups[leaves_by] == groups[enters_by]:
+                return True
             if leaves_by not in reachable:
-                reachable[leaves_by] = nx.descendants(self.road_graph.graph, leaves_by) | {leaves_by}
-            return segments[target.segment_index].start in reachable[leaves_by]
+                reachable[leaves_by] = nx.descendants(graph, leaves_by) | {leaves_by}
+            return enters_by in reachable[leaves_by]
 
         routes = [(depot.name, point.name) for point in points]
         routes.extend(

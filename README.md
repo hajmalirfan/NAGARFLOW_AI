@@ -163,12 +163,34 @@ require six to ten selected points.
 
 The management page supports search and availability filtering and displays
 registered coordinates on a MapLibre map using OpenStreetMap raster tiles,
-with OpenStreetMap attribution. The initial map view uses the supplied
-coordinates (10.89918, 79.54393); they are only a map center, not a seeded
-storage point. Availability is stored as a static status only; no
+with OpenStreetMap attribution. The initial map view uses central Trichy
+(10.8050, 78.6856); that is only a map center, not a seeded storage point. Availability is stored as a static status only; no
 time-dependent collection logic is applied before the DEC-003 decision.
 Existing scenario-owned points are migrated to coordinator ownership;
 legacy records without codes receive a clearly marked `LEGACY-SP-<id>` code.
+
+## Road connectivity
+
+A scenario is only marked valid once its trip has been checked against real
+roads. The check reads an OpenStreetMap GeoPackage named by
+`ROAD_NETWORK_PATH` in `.env`; a relative path starts at the repository root.
+The dataset is 35 MB, covers about 78.163–79.005°E and 10.301–11.385°N, and
+is local only, so `*.gpkg` is ignored by git. Without a usable file, scenarios
+stay `incomplete` and optimization stays blocked.
+
+The network loads once, on the first validation after the server starts,
+which takes about four seconds. After that a check takes milliseconds.
+
+A location must be within `ROAD_SNAP_MAX_M` metres of a usable road. The
+default of 200 is an assumption, not a measured figure. Beyond it the location
+is reported as `ROAD_TOO_FAR`. The depot must then reach every storage point,
+every point must reach every other point, and every point must reach the
+facility; a missing route is reported as `ROAD_UNREACHABLE`.
+
+Roads marked private or closed to motor vehicles are excluded, and roads with
+no access tag count as usable. Truck size and weight limits are not checked,
+and the dataset has no turn restrictions, so a passing check means a route
+exists on the network, not that a truck may legally take it.
 
 ## Forgotten passwords
 

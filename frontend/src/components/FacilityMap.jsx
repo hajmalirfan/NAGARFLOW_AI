@@ -34,7 +34,7 @@ export default function FacilityMap({ facilities, capacityById = {} }) {
     <LocationMap
       markers={markers}
       title="Processing facility map"
-      description="Map view centered on 10.89918, 79.54393 when no facility is registered."
+      description="Map view centered on 10.8050, 78.6856 when no facility is registered."
       emptyMessage="No registered facility to display yet."
       ariaLabel="Map of registered processing facilities"
       markerClassName="facility-marker"

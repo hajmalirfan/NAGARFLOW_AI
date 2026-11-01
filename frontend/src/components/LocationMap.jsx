@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-const INITIAL_CENTER = [79.54393, 10.89918];
+const INITIAL_CENTER = [78.6856, 10.8050];
 
 function markerPopup(marker) {
   const content = document.createElement("div");
@@ -126,7 +126,7 @@ export default function LocationMap({
         </div>
         <a
           className="scenario-row-link"
-          href="https://www.openstreetmap.org/#map=14/10.89918/79.54393"
+          href="https://www.openstreetmap.org/#map=14/10.8050/78.6856"
           target="_blank"
           rel="noreferrer"
         >

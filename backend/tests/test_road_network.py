@@ -445,3 +445,18 @@ def test_relative_path_resolves_from_the_repository_root(
     use_path(monkeypatch, "data/roads.gpkg")
 
     assert isinstance(get_road_network(), GeoPackageRoadNetwork)
+
+
+def test_routes_within_one_connected_group_need_no_search(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    roads = network(tmp_path, [("primary", SPINE, "")])
+
+    def refuse_search(*args: object) -> None:
+        raise AssertionError("searched the whole graph")
+
+    monkeypatch.setattr(road_network.nx, "descendants", refuse_search)
+
+    result = roads.check(at("DEP", A), [at("SP-1", B), at("SP-2", B)], at("FAC", C))
+
+    assert result == RoadCheckResult([], [])

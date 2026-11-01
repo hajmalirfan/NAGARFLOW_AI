@@ -18,7 +18,7 @@ export default function StoragePointMap({ points }) {
     <LocationMap
       markers={markers}
       title="Storage point map"
-      description="Map view centered on 10.89918, 79.54393 when no points are registered."
+      description="Map view centered on 10.8050, 78.6856 when no points are registered."
       emptyMessage="No registered points to display yet."
       ariaLabel="Map of registered storage points"
     />
