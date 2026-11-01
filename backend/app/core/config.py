@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # How far a location may sit from a usable road. An assumption, not a
     # measured figure.
     road_snap_max_m: float = Field(default=200, gt=0)
+    # The OpenStreetMap GeoPackage. A relative path starts at the repository
+    # root. Empty means no road network, so scenarios stay incomplete.
+    road_network_path: str = ""
 
     # Password reset
     reset_token_expire_minutes: int = 15

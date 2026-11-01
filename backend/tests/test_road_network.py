@@ -4,13 +4,23 @@ Every road here is synthetic and built per test, so these rules are proved
 without the real dataset. Coordinates are ``(longitude, latitude)``.
 """
 
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import networkx as nx
 import pytest
 
-from app.services.road_network import GeoPackageRoadNetwork, RoadDataError, load_road_graph
-from app.services.validation import RoadCheckResult, RoadLocation
+from app.core.config import settings
+from app.services import road_network
+from app.services.road_network import (
+    GeoPackageRoadNetwork,
+    RoadDataError,
+    get_road_network,
+    load_road_graph,
+)
+from app.services.validation import NullRoadNetwork, RoadCheckResult, RoadLocation
 from road_fixtures import write_gpkg
 
 SNAP_M = 200.0
@@ -366,3 +376,72 @@ def test_identical_coordinates_connect(tmp_path: Path) -> None:
     )
 
     assert result == RoadCheckResult([], [])
+
+
+# --- Loading once per process ------------------------------------------
+
+
+def use_path(monkeypatch: pytest.MonkeyPatch, path: Path | str) -> None:
+    monkeypatch.setattr(settings, "road_network_path", str(path))
+
+
+def test_empty_path_gives_the_not_configured_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    use_path(monkeypatch, "")
+
+    assert get_road_network().warning["code"] == "ROAD_NETWORK_NOT_CONFIGURED"
+
+
+def test_missing_file_gives_the_unavailable_network(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    use_path(monkeypatch, tmp_path / "absent.gpkg")
+
+    assert get_road_network().warning["code"] == "ROAD_NETWORK_UNAVAILABLE"
+
+
+def test_failed_load_is_retried_once_the_file_is_fixed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "roads.gpkg"
+    use_path(monkeypatch, path)
+    assert isinstance(get_road_network(), NullRoadNetwork)
+
+    write_gpkg(path, [("primary", [A, B], "")])
+
+    assert isinstance(get_road_network(), GeoPackageRoadNetwork)
+
+
+def test_concurrent_first_calls_build_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    use_path(monkeypatch, write_gpkg(tmp_path / "roads.gpkg", [("primary", [A, B], "")]))
+    builds: list[int] = []
+    real_load = road_network.load_road_graph
+
+    def counting_load(path: Path, snap_max_m: float):
+        builds.append(1)
+        time.sleep(0.05)
+        return real_load(path, snap_max_m)
+
+    monkeypatch.setattr(road_network, "load_road_graph", counting_load)
+    barrier = threading.Barrier(8)
+
+    def first_call(_: int):
+        barrier.wait()
+        return get_road_network()
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(first_call, range(8)))
+
+    assert len(builds) == 1
+    assert all(result is results[0] for result in results)
+
+
+def test_relative_path_resolves_from_the_repository_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    write_gpkg(tmp_path / "data" / "roads.gpkg", [("primary", [A, B], "")])
+    monkeypatch.setattr(road_network, "REPOSITORY_ROOT", tmp_path)
+    use_path(monkeypatch, "data/roads.gpkg")
+
+    assert isinstance(get_road_network(), GeoPackageRoadNetwork)

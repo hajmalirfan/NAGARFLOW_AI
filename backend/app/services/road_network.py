@@ -22,16 +22,26 @@ import math
 import re
 import sqlite3
 import struct
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import networkx as nx
 
-from app.services.validation import RoadCheckResult, RoadLocation
+from app.core.config import settings
+from app.services.validation import (
+    NullRoadNetwork,
+    RoadCheckResult,
+    RoadLocation,
+    RoadNetwork,
+)
 
 logger = logging.getLogger(__name__)
 
 Node = tuple[float, float]  # (longitude, latitude), rounded
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 COORDINATE_PLACES = 7
 METRES_PER_DEGREE = 111320
@@ -273,3 +283,52 @@ class GeoPackageRoadNetwork:
             and not connected(snaps[source], snaps[target])
         ]
         return RoadCheckResult(too_far=too_far, unreachable=unreachable)
+
+
+ROAD_NETWORK_UNAVAILABLE_WARNING = {
+    "code": "ROAD_NETWORK_UNAVAILABLE",
+    "message": (
+        "Road connectivity has not been checked because the road network could "
+        "not be loaded. A scenario is not marked valid until connectivity is "
+        "verified."
+    ),
+}
+
+_network: GeoPackageRoadNetwork | None = None
+_load_lock = threading.Lock()
+
+
+def get_road_network() -> RoadNetwork:
+    """The process-wide road network, built on first use.
+
+    A failed load is not kept, so repairing the file needs no restart.
+    """
+    global _network
+    if _network is not None:
+        return _network
+    if not settings.road_network_path:
+        return NullRoadNetwork()
+
+    with _load_lock:
+        if _network is not None:
+            return _network
+        path = REPOSITORY_ROOT / settings.road_network_path
+        started = time.perf_counter()
+        try:
+            road_graph = load_road_graph(path, settings.road_snap_max_m)
+        except RoadDataError as error:
+            logger.error("Road network unavailable: %s", error)
+            return NullRoadNetwork(ROAD_NETWORK_UNAVAILABLE_WARNING)
+        logger.info(
+            "Loaded road network with %s segments in %.1f s.",
+            len(road_graph.segments),
+            time.perf_counter() - started,
+        )
+        _network = GeoPackageRoadNetwork(road_graph, settings.road_snap_max_m)
+        return _network
+
+
+def reset_road_network() -> None:
+    """Forget the loaded network, so each test chooses its own."""
+    global _network
+    _network = None

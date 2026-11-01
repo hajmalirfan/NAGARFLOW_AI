@@ -749,3 +749,19 @@ def test_road_check_is_skipped_without_a_facility() -> None:
 
     assert fake.calls == []
     assert report.validation_status == "invalid"
+
+
+def test_validate_endpoint_uses_the_road_network(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake = FakeRoadNetwork(RoadCheckResult(too_far=[], unreachable=[]))
+    monkeypatch.setattr("app.api.scenarios.get_road_network", lambda: fake)
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    report = validate(client, auth_headers, scenario.id)
+
+    assert len(fake.calls) == 1
+    assert report["checks"]["road_connectivity"] == "passed"
+    assert report["validation_status"] == "valid"
+    assert report["can_optimize"] is True

@@ -19,6 +19,7 @@ from app.models import (
 )
 from app.schemas.scenario import ScenarioOptions, ScenarioResponse, ScenarioWrite
 from app.schemas.validation import ValidationHistoryEntry, ValidationReportResponse
+from app.services.road_network import get_road_network
 from app.services.validation import record_validation, validate_scenario
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
@@ -383,7 +384,7 @@ def validate_scenario_endpoint(
     underlying vehicles, points and facility can change at any time.
     """
     scenario = _get_owned_scenario(db, scenario_id, user)
-    report = validate_scenario(db, scenario)
+    report = validate_scenario(db, scenario, get_road_network())
     record_validation(db, report)
     return ValidationReportResponse(
         scenario_id=report.scenario_id,

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies import get_db
+from app.core.config import settings
 from app.db.base import Base
 from app.main import app
 
@@ -22,6 +23,16 @@ from app.main import app
 # ``create_all`` below builds the full schema.
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
 from app.models.user import User  # noqa: F401
+from app.services.road_network import reset_road_network
+
+
+@pytest.fixture(autouse=True)
+def no_real_road_network(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
+    """Keep tests off the real dataset, even if a local .env points at it."""
+    monkeypatch.setattr(settings, "road_network_path", "")
+    reset_road_network()
+    yield
+    reset_road_network()
 
 
 @pytest.fixture

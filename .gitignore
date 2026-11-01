@@ -224,6 +224,7 @@ node_modules/
 frontend/dist/
 
 # Local environment and database files
+*.gpkg
 .env
 *.dump
 *.sql.gz
