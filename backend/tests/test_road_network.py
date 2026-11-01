@@ -473,7 +473,7 @@ def test_non_finite_coordinates_skip_the_row(bad: float, tmp_path: Path) -> None
 
 
 def test_binary_tags_skip_the_row(tmp_path: Path) -> None:
-    ways = [("primary", [A, B], ""), ("primary", [B, C], b" binary")]
+    ways = [("primary", [A, B], ""), ("primary", [B, C], bytes([0, 1, 2]))]
 
     assert not load(tmp_path, ways).has_node(C)
 
