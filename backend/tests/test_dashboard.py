@@ -162,7 +162,7 @@ def test_cards_report_the_real_database_totals(
         storage_points=(1200.0, 800.0, 450.5),
         vehicles=((5000.0, True), (5000.0, False)),
         facility_capacity_kg=9000.0,
-        runs=(("greedy", "success", 18400.0), ("or_tools", "success", 15200.0), ("greedy", "failed", 0.0)),
+        runs=(("greedy", "feasible", 18400.0), ("or_tools", "feasible", 15200.0), ("greedy", "no_solution", 0.0)),
     )
 
     body = client.get(SUMMARY, headers=auth_headers).json()
@@ -269,9 +269,9 @@ def test_optimization_summary_counts_successes_and_failures(
         db_session,
         registered_user["email"],
         runs=(
-            ("greedy", "success", 18400.0),
-            ("or_tools", "success", 15200.0),
-            ("or_tools", "failed", 0.0),
+            ("greedy", "feasible", 18400.0),
+            ("or_tools", "feasible", 15200.0),
+            ("or_tools", "no_solution", 0.0),
         ),
     )
 
@@ -299,7 +299,7 @@ def test_one_coordinator_never_sees_another_coordinators_figures(
         storage_points=(9999.0,),
         vehicles=((7000.0, True),),
         facility_capacity_kg=50000.0,
-        runs=(("greedy", "success", 1000.0),),
+        runs=(("greedy", "feasible", 1000.0),),
     )
 
     body = client.get(SUMMARY, headers=auth_headers).json()

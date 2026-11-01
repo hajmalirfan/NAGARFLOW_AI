@@ -17,6 +17,7 @@ from app.db.base import Base
 from app.db.migrations import (
     upgrade_legacy_depot_schema,
     upgrade_legacy_facility_schema,
+    upgrade_legacy_optimization_run_schema,
     upgrade_legacy_scenario_schema,
     upgrade_legacy_storage_point_schema,
     upgrade_legacy_vehicle_schema,
@@ -40,6 +41,7 @@ async def lifespan(_: FastAPI):
     upgrade_legacy_storage_point_schema(engine)
     upgrade_legacy_facility_schema(engine)
     upgrade_legacy_scenario_schema(engine)
+    upgrade_legacy_optimization_run_schema(engine)
     yield
 
 

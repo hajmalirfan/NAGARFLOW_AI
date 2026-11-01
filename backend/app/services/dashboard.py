@@ -10,7 +10,11 @@ from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.scenario import scenario_storage_points, scenario_vehicles
-from app.models.optimization_run import STATUS_FAILED, STATUS_SUCCESS, OptimizationRun
+from app.models.optimization_run import (
+    FAILED_STATUSES,
+    SUCCESSFUL_STATUSES,
+    OptimizationRun,
+)
 from app.models.processing_facility import ProcessingFacility
 from app.models.scenario import Scenario
 from app.models.storage_point import StoragePoint
@@ -120,8 +124,8 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
     # delivery, so the whole configured capacity is still available.
     facility_capacity_kg = sum(facility.capacity_kg for facility in facilities)
 
-    successful_runs = [run for run in runs if run.status == STATUS_SUCCESS]
-    failed_runs = [run for run in runs if run.status == STATUS_FAILED]
+    successful_runs = [run for run in runs if run.status in SUCCESSFUL_STATUSES]
+    failed_runs = [run for run in runs if run.status in FAILED_STATUSES]
     best_distance_m = min((run.total_distance_m for run in successful_runs), default=None)
 
     def to_vehicle_summary(vehicle: Vehicle) -> VehicleSummary:

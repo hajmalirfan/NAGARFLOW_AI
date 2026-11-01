@@ -807,3 +807,63 @@ def upgrade_legacy_scenario_schema(engine: Engine) -> None:
                 connection.exec_driver_sql(
                     f"ALTER TABLE scenarios ADD COLUMN {name} {column_type}"
                 )
+
+
+def upgrade_legacy_optimization_run_schema(engine: Engine) -> None:
+    """Let a run have no distance, and add the fields real runs record."""
+    inspector = inspect(engine)
+    if "optimization_runs" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"]: column for column in inspector.get_columns("optimization_runs")}
+    if engine.dialect.name == "sqlite":
+        if "batch_id" not in columns or not columns["total_distance_m"]["nullable"]:
+            _rebuild_sqlite_optimization_run_table(engine)
+        return
+
+    added = {
+        "batch_id": "VARCHAR(32)",
+        "solve_ms": "INTEGER",
+        "message": "TEXT",
+        "routes": "JSON",
+        "input_hash": "VARCHAR(64)",
+    }
+    with engine.begin() as connection:
+        for name, column_type in added.items():
+            if name not in columns:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE optimization_runs ADD COLUMN {name} {column_type}"
+                )
+        connection.exec_driver_sql(
+            "ALTER TABLE optimization_runs ALTER COLUMN total_distance_m DROP NOT NULL"
+        )
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_optimization_runs_batch_id "
+            "ON optimization_runs (batch_id)"
+        )
+
+
+def _rebuild_sqlite_optimization_run_table(engine: Engine) -> None:
+    from app.models.optimization_run import OptimizationRun
+
+    with engine.begin() as connection:
+        old_columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(optimization_runs)")
+        }
+        connection.exec_driver_sql(
+            "ALTER TABLE optimization_runs RENAME TO optimization_runs_legacy_backup"
+        )
+        for index in OptimizationRun.__table__.indexes:
+            connection.exec_driver_sql(f"DROP INDEX IF EXISTS {index.name}")
+        OptimizationRun.__table__.create(connection)
+        shared = [
+            column.name for column in OptimizationRun.__table__.columns
+            if column.name in old_columns
+        ]
+        column_list = ", ".join(shared)
+        connection.exec_driver_sql(
+            f"INSERT INTO optimization_runs ({column_list}) "
+            f"SELECT {column_list} FROM optimization_runs_legacy_backup"
+        )
+        connection.exec_driver_sql("DROP TABLE optimization_runs_legacy_backup")
