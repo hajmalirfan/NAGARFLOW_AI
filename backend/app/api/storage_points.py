@@ -121,6 +121,7 @@ def _serialize(point: StoragePoint) -> StoragePointResponse:
         longitude=point.longitude,
         waste_quantity_kg=point.waste_kg,
         availability_status=point.availability_status,
+        available_from=point.available_from,
         description=point.description,
         created_at=point.created_at,
         updated_at=point.updated_at,
@@ -144,6 +145,7 @@ def create_storage_point(
         longitude=values["longitude"],
         waste_kg=values["waste_quantity_kg"],
         availability_status=values["availability_status"],
+        available_from=values["available_from"],
         description=values["description"] or None,
     )
     db.add(point)
@@ -192,6 +194,7 @@ def update_storage_point(
     point.longitude = values["longitude"]
     point.waste_kg = values["waste_quantity_kg"]
     point.availability_status = values["availability_status"]
+    point.available_from = values["available_from"]
     point.description = values["description"] or None
     db.commit()
     db.refresh(point)

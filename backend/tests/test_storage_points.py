@@ -265,3 +265,16 @@ def test_legacy_storage_point_migration_preserves_rows_and_relationship_tables()
             (scenario_id,),
         ).scalar_one() == 9
     engine.dispose()
+
+
+def test_available_from_round_trips(
+    client: TestClient, auth_headers: dict[str, str]
+) -> None:
+    created = client.post(
+        "/api/v1/storage-points",
+        json=point_payload(available_from="2026-11-03T09:30:00"),
+        headers=auth_headers,
+    )
+
+    assert created.status_code == 201, created.text
+    assert created.json()["available_from"] == "2026-11-03T09:30:00"

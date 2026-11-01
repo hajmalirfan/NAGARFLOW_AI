@@ -6,6 +6,7 @@ is easy to get wrong: combined capacity can pass while no assignment of
 whole storage points to two vehicles exists.
 """
 
+from datetime import datetime
 from decimal import Decimal
 
 import pytest
@@ -148,6 +149,8 @@ def stub_scenario(
     waste: tuple[float, ...] = (1000, 1000, 1000, 1000, 1000, 1000),
     bad_latitude: bool = False,
     null_longitude: bool = False,
+    shift_end: datetime | None = None,
+    available_from: datetime | None = None,
 ) -> _Stub:
     """An in-memory scenario for states the database no longer allows."""
     points = [
@@ -157,6 +160,7 @@ def stub_scenario(
             waste_kg=Decimal(str(quantity)),
             latitude=120.0 if (bad_latitude and index == 0) else 10.79 + index / 100,
             longitude=None if (null_longitude and index == 0) else 78.70 + index / 100,
+            available_from=available_from if index == 0 else None,
         )
         for index, quantity in enumerate(waste)
     ]
@@ -175,6 +179,7 @@ def stub_scenario(
         id=1, reference="SC-STUB", depot=depot, processing_facility=facility,
         facilities=[facility], selected_vehicles=vehicles, vehicles=[],
         selected_storage_points=points, storage_points=[],
+        shift_start=None, shift_end=shift_end,
     )
 
 
@@ -765,3 +770,39 @@ def test_validate_endpoint_uses_the_road_network(
     assert report["checks"]["road_connectivity"] == "passed"
     assert report["validation_status"] == "valid"
     assert report["can_optimize"] is True
+
+
+# --- Rule 11: availability ---------------------------------------------
+
+CLEAN = RoadCheckResult(too_far=[], unreachable=[])
+
+
+def test_point_available_after_shift_end_fails() -> None:
+    scenario = stub_scenario(
+        shift_end=datetime(2026, 11, 3, 14), available_from=datetime(2026, 11, 3, 15)
+    )
+
+    report = validate_scenario(None, scenario, FakeRoadNetwork(CLEAN))
+
+    assert report.checks["availability"] == "failed"
+    assert report.validation_status == "invalid"
+    error = next(e for e in report.errors if e["code"] == "AVAILABILITY_AFTER_SHIFT")
+    assert "SP001" in error["message"]
+
+
+def test_availability_passes_without_a_shift() -> None:
+    scenario = stub_scenario(available_from=datetime(2026, 11, 3, 15))
+
+    report = validate_scenario(None, scenario, FakeRoadNetwork(CLEAN))
+
+    assert report.checks["availability"] == "passed"
+
+
+def test_point_available_before_shift_start_passes() -> None:
+    scenario = stub_scenario(
+        shift_end=datetime(2026, 11, 3, 14), available_from=datetime(2026, 11, 3, 1)
+    )
+
+    report = validate_scenario(None, scenario, FakeRoadNetwork(CLEAN))
+
+    assert report.checks["availability"] == "passed"

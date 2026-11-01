@@ -52,6 +52,7 @@ CHECK_ORDER = (
     "combined_capacity",
     "facility_capacity",
     "coordinates",
+    "availability",
     "vehicle_assignment",
     "road_connectivity",
 )
@@ -382,6 +383,25 @@ def validate_scenario(
         )
     else:
         checks["coordinates"] = PASSED
+
+    # DEC-003: a vehicle waits for waste, so only a shift can make waste too
+    # late. A point ready before the shift starts is simply ready at once.
+    shift_end = scenario.shift_end
+    too_late = [
+        point.point_code for point in points
+        if shift_end is not None
+        and point.available_from is not None
+        and point.available_from > shift_end
+    ]
+    if too_late:
+        fail(
+            "availability",
+            "AVAILABILITY_AFTER_SHIFT",
+            f"Waste at these points is not available until after the shift ends: "
+            f"{', '.join(too_late)}.",
+        )
+    else:
+        checks["availability"] = PASSED
 
     # A valid assignment of whole points to the two vehicles must exist.
     assignment: list[VehicleLoad] | None = None

@@ -11,6 +11,7 @@ const CHECK_LABELS = [
   ["combined_capacity", "Combined vehicle capacity"],
   ["facility_capacity", "Facility capacity"],
   ["coordinates", "Coordinates"],
+  ["availability", "Waste availability"],
   ["vehicle_assignment", "Vehicle capacity assignment"],
   ["road_connectivity", "Road connectivity"],
 ];

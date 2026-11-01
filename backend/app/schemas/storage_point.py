@@ -16,6 +16,7 @@ class StoragePointWrite(BaseModel):
     longitude: float = Field(ge=-180, le=180)
     waste_quantity_kg: Decimal = Field(ge=0, max_digits=12, decimal_places=2)
     availability_status: AvailabilityStatus = "available"
+    available_from: datetime | None = None
     description: str = Field(default="", max_length=5000)
 
     @field_validator("name", "point_code")
@@ -46,6 +47,7 @@ class StoragePointResponse(BaseModel):
     longitude: float
     waste_quantity_kg: float
     availability_status: AvailabilityStatus
+    available_from: datetime | None
     description: str | None
     created_at: datetime
     updated_at: datetime

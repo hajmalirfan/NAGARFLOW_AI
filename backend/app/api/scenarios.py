@@ -51,6 +51,8 @@ def _serialize(scenario: Scenario) -> ScenarioResponse:
         name=scenario.name,
         description=scenario.description,
         status=scenario.status,
+        shift_start=scenario.shift_start,
+        shift_end=scenario.shift_end,
         depot={"id": scenario.depot.id, "name": scenario.depot.name} if scenario.depot else None,
         processing_facility=(
             {
@@ -197,6 +199,8 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
     scenario.name = name
     scenario.description = payload.description.strip()
     scenario.status = payload.status
+    scenario.shift_start = payload.shift_start
+    scenario.shift_end = payload.shift_end
     scenario.depot = depot
     scenario.processing_facility = facility
     scenario.selected_vehicles = vehicles
@@ -317,6 +321,8 @@ def create_scenario(
         name=payload.name.strip(),
         description=payload.description.strip(),
         status=payload.status,
+        shift_start=payload.shift_start,
+        shift_end=payload.shift_end,
     )
     _apply_payload(db, scenario, payload, user)
     db.add(scenario)

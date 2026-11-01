@@ -66,6 +66,10 @@ class Scenario(Base):
     name: Mapped[str] = mapped_column(String(150))
     description: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(20), default="draft")
+    # Optional shift, in Indian Standard Time. No shift means no time limit,
+    # so a vehicle may wait for waste as long as it needs.
+    shift_start: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    shift_end: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 

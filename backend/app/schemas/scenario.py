@@ -43,6 +43,16 @@ class ScenarioWrite(BaseModel):
     vehicle_ids: list[int] = Field(min_length=2, max_length=2)
     storage_point_ids: list[int] = Field(min_length=6, max_length=10)
     status: ScenarioStatus = "draft"
+    shift_start: datetime | None = None
+    shift_end: datetime | None = None
+
+    @model_validator(mode="after")
+    def shift_must_be_a_real_window(self) -> "ScenarioWrite":
+        if (self.shift_start is None) != (self.shift_end is None):
+            raise ValueError("Set both a shift start and a shift end, or neither.")
+        if self.shift_start is not None and self.shift_end <= self.shift_start:
+            raise ValueError("The shift must end after it starts.")
+        return self
 
     @model_validator(mode="after")
     def selected_ids_must_be_unique(self) -> "ScenarioWrite":
@@ -66,6 +76,8 @@ class ScenarioResponse(BaseModel):
     name: str
     description: str
     status: str
+    shift_start: datetime | None
+    shift_end: datetime | None
     depot: DepotOption | None
     processing_facility: FacilityOption | None
     vehicles: list[VehicleOption]

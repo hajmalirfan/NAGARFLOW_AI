@@ -791,3 +791,19 @@ def _rebuild_sqlite_facility_table(engine: Engine) -> None:
             connection.exec_driver_sql("PRAGMA legacy_alter_table=OFF")
             connection.exec_driver_sql("PRAGMA foreign_keys=ON")
             connection.commit()
+
+
+def upgrade_legacy_scenario_schema(engine: Engine) -> None:
+    """Add the optional shift window to scenarios created before it existed."""
+    inspector = inspect(engine)
+    if "scenarios" not in inspector.get_table_names():
+        return
+
+    existing = {column["name"] for column in inspector.get_columns("scenarios")}
+    column_type = "TIMESTAMP" if engine.dialect.name == "postgresql" else "DATETIME"
+    with engine.begin() as connection:
+        for name in ("shift_start", "shift_end"):
+            if name not in existing:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE scenarios ADD COLUMN {name} {column_type}"
+                )

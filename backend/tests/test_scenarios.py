@@ -1,6 +1,7 @@
 """Scenario management tests."""
 
 import pytest
+from sqlalchemy import create_engine
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -277,3 +278,61 @@ def test_scenario_cannot_be_deleted_during_optimization(
 
     response = client.delete(f"{SCENARIOS}/{created['id']}", headers=auth_headers)
     assert response.status_code == 409
+
+
+# --- Shift window ------------------------------------------------------
+
+
+def test_shift_needs_both_ends(
+    client: TestClient, auth_headers: dict[str, str], scenario_resources: dict[str, object]
+) -> None:
+    body = {**payload(scenario_resources), "shift_start": "2026-11-03T06:00:00"}
+
+    assert client.post(SCENARIOS, json=body, headers=auth_headers).status_code == 422
+
+
+def test_shift_end_must_follow_start(
+    client: TestClient, auth_headers: dict[str, str], scenario_resources: dict[str, object]
+) -> None:
+    body = {
+        **payload(scenario_resources),
+        "shift_start": "2026-11-03T14:00:00",
+        "shift_end": "2026-11-03T06:00:00",
+    }
+
+    assert client.post(SCENARIOS, json=body, headers=auth_headers).status_code == 422
+
+
+def test_shift_round_trips(
+    client: TestClient, auth_headers: dict[str, str], scenario_resources: dict[str, object]
+) -> None:
+    body = {
+        **payload(scenario_resources),
+        "shift_start": "2026-11-03T06:00:00",
+        "shift_end": "2026-11-03T14:00:00",
+    }
+
+    created = client.post(SCENARIOS, json=body, headers=auth_headers)
+
+    assert created.status_code == 201, created.text
+    assert created.json()["shift_start"] == "2026-11-03T06:00:00"
+    assert created.json()["shift_end"] == "2026-11-03T14:00:00"
+
+
+def test_upgrade_adds_shift_columns() -> None:
+    from sqlalchemy import inspect, text
+    from sqlalchemy.pool import StaticPool
+
+    from app.db.migrations import upgrade_legacy_scenario_schema
+
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE scenarios (id INTEGER PRIMARY KEY, name TEXT)"))
+        connection.execute(text("INSERT INTO scenarios (name) VALUES ('kept')"))
+
+    upgrade_legacy_scenario_schema(engine)
+
+    columns = {column["name"] for column in inspect(engine).get_columns("scenarios")}
+    assert {"shift_start", "shift_end"} <= columns
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT name FROM scenarios")).scalar() == "kept"
