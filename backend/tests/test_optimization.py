@@ -26,7 +26,13 @@ from app.services.optimization import (
     scenario_locations,
 )
 from app.services.road_costs import CostMatrix
-from test_validation import auth_headers, build_scenario, stub_scenario  # noqa: F401
+from app.services.validation import RoadCheckResult
+from test_validation import (  # noqa: F401
+    FakeRoadNetwork,
+    auth_headers,
+    build_scenario,
+    stub_scenario,
+)
 
 
 def line_costs(network: object, locations: list) -> CostMatrix:
@@ -197,3 +203,152 @@ def test_upgrade_makes_distance_nullable() -> None:
 def test_grams_use_decimal_not_float() -> None:
     assert optimization.kg_to_g(Decimal("0.29")) == 290
     assert optimization.kg_to_g(1234.56) == 1234560
+
+
+# --- API ---------------------------------------------------------------
+
+SCENARIOS = "/api/v1/scenarios"
+
+
+@pytest.fixture
+def clean_roads(monkeypatch: pytest.MonkeyPatch, fake_roads: None) -> None:
+    network = FakeRoadNetwork(RoadCheckResult(too_far=[], unreachable=[]))
+    monkeypatch.setattr("app.api.scenarios.get_road_network", lambda: network)
+
+
+def optimize(client: TestClient, headers: dict[str, str], scenario_id: int):
+    return client.post(f"{SCENARIOS}/{scenario_id}/optimize", headers=headers)
+
+
+def test_optimize_requires_authentication(client: TestClient) -> None:
+    assert client.post(f"{SCENARIOS}/1/optimize").status_code in (401, 403)
+
+
+def test_optimize_refuses_an_invalid_scenario(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"], facility_capacity=100)
+
+    response = optimize(client, auth_headers, scenario.id)
+
+    assert response.status_code == 409
+    report = response.json()["detail"]["report"]
+    assert "FACILITY_CAPACITY" in {error["code"] for error in report["errors"]}
+    assert saved(db_session) == []
+
+
+def test_optimize_refuses_when_the_road_network_is_unavailable(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, fake_roads: None,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    response = optimize(client, auth_headers, scenario.id)
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["report"]["validation_status"] == "incomplete"
+
+
+def test_optimize_returns_both_methods(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    response = optimize(client, auth_headers, scenario.id)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["greedy"]["status"] == "feasible"
+    assert body["or_tools"]["status"] == "feasible"
+    assert body["or_tools"]["routes"][0]["geometry"]
+    assert len(saved(db_session)) == 2
+
+
+def test_difference_is_greedy_minus_or_tools(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    body = optimize(client, auth_headers, scenario.id).json()
+
+    expected = body["greedy"]["total_distance_m"] - body["or_tools"]["total_distance_m"]
+    assert body["difference_m"] == expected
+    assert body["difference_pct"] == pytest.approx(
+        expected / body["greedy"]["total_distance_m"] * 100, abs=0.01
+    )
+
+
+def test_difference_needs_both_feasible(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def crash(problem: object) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(optimization, "solve_greedy", crash)
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    body = optimize(client, auth_headers, scenario.id).json()
+
+    assert body["greedy"]["total_distance_m"] is None
+    assert body["difference_m"] is None
+    assert body["difference_pct"] is None
+
+
+def test_another_coordinators_scenario_is_404(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+    other = {"name": "Other", "email": "other@example.com", "password": "other-password-123"}
+    client.post("/api/v1/auth/register", json=other)
+    token = client.post(
+        "/api/v1/auth/login", json={"email": other["email"], "password": other["password"]}
+    ).json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    assert optimize(client, headers, scenario.id).status_code == 404
+    assert client.get(f"{SCENARIOS}/{scenario.id}/optimization", headers=headers).status_code == 404
+
+
+def test_latest_optimization_returns_the_newest_batch(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session, clean_roads: None,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+    optimize(client, auth_headers, scenario.id)
+    newest = optimize(client, auth_headers, scenario.id).json()["batch_id"]
+
+    response = client.get(f"{SCENARIOS}/{scenario.id}/optimization", headers=auth_headers)
+
+    assert response.status_code == 200
+    assert response.json()["batch_id"] == newest
+
+
+def test_no_optimization_yet_is_404(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+
+    response = client.get(f"{SCENARIOS}/{scenario.id}/optimization", headers=auth_headers)
+
+    assert response.status_code == 404
+
+
+def test_rows_without_a_batch_are_ignored(
+    client: TestClient, auth_headers: dict[str, str], registered_user: dict[str, str],
+    db_session: Session,
+) -> None:
+    scenario = build_scenario(db_session, registered_user["email"])
+    db_session.add(OptimizationRun(
+        scenario_id=scenario.id, algorithm="greedy", status="success", total_distance_m=5
+    ))
+    db_session.commit()
+
+    response = client.get(f"{SCENARIOS}/{scenario.id}/optimization", headers=auth_headers)
+
+    assert response.status_code == 404

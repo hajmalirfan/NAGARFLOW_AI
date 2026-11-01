@@ -18,9 +18,16 @@ from app.models import (
     Vehicle,
 )
 from app.schemas.scenario import ScenarioOptions, ScenarioResponse, ScenarioWrite
+from app.models.optimization_run import ALGORITHM_GREEDY, ALGORITHM_OR_TOOLS
+from app.schemas.optimization import MethodRun, OptimizationComparison
 from app.schemas.validation import ValidationHistoryEntry, ValidationReportResponse
+from app.services.optimization import optimize_scenario
 from app.services.road_network import get_road_network
-from app.services.validation import record_validation, validate_scenario
+from app.services.validation import (
+    ValidationReport,
+    record_validation,
+    validate_scenario,
+)
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
 ACTIVE_OPTIMIZATION_STATUSES = {"queued", "pending", "running", "in_progress"}
@@ -377,21 +384,7 @@ def delete_scenario(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/{scenario_id}/validate", response_model=ValidationReportResponse)
-def validate_scenario_endpoint(
-    scenario_id: int,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> ValidationReportResponse:
-    """Check every hard constraint before the optimizer may run.
-
-    The result is recorded so the decision can be reviewed later, and the
-    scenario is re-checked on every call rather than cached, because the
-    underlying vehicles, points and facility can change at any time.
-    """
-    scenario = _get_owned_scenario(db, scenario_id, user)
-    report = validate_scenario(db, scenario, get_road_network())
-    record_validation(db, report)
+def _report_response(report: ValidationReport) -> ValidationReportResponse:
     return ValidationReportResponse(
         scenario_id=report.scenario_id,
         validation_status=report.validation_status,
@@ -416,6 +409,105 @@ def validate_scenario_endpoint(
             else None
         ),
     )
+
+
+def _method_run(run: OptimizationRun) -> MethodRun:
+    return MethodRun(
+        status=run.status,
+        total_distance_m=run.total_distance_m,
+        solve_ms=run.solve_ms,
+        message=run.message,
+        routes=run.routes or [],
+    )
+
+
+def _comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
+    by_algorithm = {run.algorithm: run for run in runs}
+    greedy = by_algorithm[ALGORITHM_GREEDY]
+    or_tools = by_algorithm[ALGORITHM_OR_TOOLS]
+
+    difference_m = difference_pct = None
+    if greedy.total_distance_m is not None and or_tools.total_distance_m is not None:
+        difference_m = greedy.total_distance_m - or_tools.total_distance_m
+        difference_pct = round(difference_m / greedy.total_distance_m * 100, 2)
+
+    return OptimizationComparison(
+        scenario_id=greedy.scenario_id,
+        batch_id=greedy.batch_id,
+        created_at=greedy.created_at,
+        input_hash=greedy.input_hash,
+        greedy=_method_run(greedy),
+        or_tools=_method_run(or_tools),
+        difference_m=difference_m,
+        difference_pct=difference_pct,
+    )
+
+
+@router.post("/{scenario_id}/validate", response_model=ValidationReportResponse)
+def validate_scenario_endpoint(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ValidationReportResponse:
+    """Check every hard constraint before the optimizer may run.
+
+    The result is recorded so the decision can be reviewed later, and the
+    scenario is re-checked on every call rather than cached, because the
+    underlying vehicles, points and facility can change at any time.
+    """
+    scenario = _get_owned_scenario(db, scenario_id, user)
+    report = validate_scenario(db, scenario, get_road_network())
+    record_validation(db, report)
+    return _report_response(report)
+
+
+@router.post("/{scenario_id}/optimize", response_model=OptimizationComparison)
+def optimize_scenario_endpoint(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OptimizationComparison:
+    """Run Greedy and OR-Tools on identical inputs and compare them.
+
+    The scenario is validated afresh, because it may have changed since it
+    was last checked. Nothing runs unless every hard constraint passes.
+    """
+    scenario = _get_owned_scenario(db, scenario_id, user)
+    network = get_road_network()
+    report = validate_scenario(db, scenario, network)
+    record_validation(db, report)
+    if not report.can_optimize:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "This scenario cannot be optimized until it passes validation.",
+                "report": _report_response(report).model_dump(),
+            },
+        )
+    return _comparison(optimize_scenario(db, scenario, network))
+
+
+@router.get("/{scenario_id}/optimization", response_model=OptimizationComparison)
+def latest_optimization(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OptimizationComparison:
+    """The most recent comparison for this scenario."""
+    _get_owned_scenario(db, scenario_id, user)
+    newest = db.scalar(
+        select(OptimizationRun)
+        .where(OptimizationRun.scenario_id == scenario_id, OptimizationRun.batch_id.is_not(None))
+        .order_by(OptimizationRun.id.desc())
+        .limit(1)
+    )
+    if newest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This scenario has not been optimized yet.",
+        )
+    runs = db.scalars(select(OptimizationRun).where(OptimizationRun.batch_id == newest.batch_id))
+    return _comparison(list(runs))
 
 
 @router.get("/{scenario_id}/validations", response_model=list[ValidationHistoryEntry])
