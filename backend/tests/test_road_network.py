@@ -9,7 +9,8 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
-from app.services.road_network import RoadDataError, load_road_graph
+from app.services.road_network import GeoPackageRoadNetwork, RoadDataError, load_road_graph
+from app.services.validation import RoadCheckResult, RoadLocation
 from road_fixtures import write_gpkg
 
 SNAP_M = 200.0
@@ -198,3 +199,170 @@ def test_every_segment_is_indexed_in_each_cell_it_spans(tmp_path: Path) -> None:
     assert road_graph.cells[cell(A)] == [0]
     assert road_graph.cells[cell(C)] == [0]
     assert road_graph.cells[cell(B)] == [0]
+
+
+# --- Snapping and reachability -----------------------------------------
+
+METRES_PER_DEGREE = 111320
+SPINE = [A, B, C]
+ONE_WAY = '"oneway"=>"yes"'
+# X lies off the spine: a stub from B to X is a dead end if one-way.
+X = (78.71, 10.81)
+Y = (78.71, 10.79)
+
+
+def network(path: Path, ways: list) -> GeoPackageRoadNetwork:
+    return GeoPackageRoadNetwork(
+        load_road_graph(write_gpkg(path / "roads.gpkg", ways), SNAP_M), SNAP_M
+    )
+
+
+def at(name: str, node: tuple[float, float], north_m: float = 0) -> RoadLocation:
+    return RoadLocation(name, node[1] + north_m / METRES_PER_DEGREE, node[0])
+
+
+def along(start: tuple[float, float], end: tuple[float, float], share: float) -> tuple[float, float]:
+    return start[0] + (end[0] - start[0]) * share, start[1] + (end[1] - start[1]) * share
+
+
+def spine_check(path: Path, location: RoadLocation) -> RoadCheckResult:
+    return network(path, [("primary", SPINE, "")]).check(
+        at("DEP", A), [location, at("SP-2", B)], at("FAC", C)
+    )
+
+
+def test_all_locations_connected_passes(tmp_path: Path) -> None:
+    assert spine_check(tmp_path, at("SP-1", along(A, B, 0.5))) == RoadCheckResult([], [])
+
+
+def test_snaps_to_the_middle_of_a_long_segment(tmp_path: Path) -> None:
+    far_vertex = (78.90, 10.80)
+    roads = network(tmp_path, [("primary", [A, far_vertex], "")])
+
+    result = roads.check(
+        at("DEP", A), [at("SP-1", along(A, far_vertex, 0.5), north_m=50)], at("FAC", far_vertex)
+    )
+
+    assert result == RoadCheckResult([], [])
+
+
+def test_location_just_inside_the_limit_attaches(tmp_path: Path) -> None:
+    result = spine_check(tmp_path, at("SP-1", along(A, B, 0.5), north_m=190))
+
+    assert result.too_far == []
+
+
+def test_location_just_outside_the_limit_is_too_far(tmp_path: Path) -> None:
+    result = spine_check(tmp_path, at("SP-1", along(A, B, 0.5), north_m=210))
+
+    assert result.too_far == ["SP-1"]
+
+
+def test_location_outside_the_extract_is_too_far(tmp_path: Path) -> None:
+    result = spine_check(tmp_path, RoadLocation("SP-1", 10.89918, 79.54393))
+
+    assert result.too_far == ["SP-1"]
+
+
+def test_too_far_location_is_left_out_of_pair_checks(tmp_path: Path) -> None:
+    result = spine_check(tmp_path, RoadLocation("SP-9", 10.89918, 79.54393))
+
+    assert result.too_far == ["SP-9"]
+    assert result.unreachable == []
+
+
+def test_too_far_depot_and_facility_are_named(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, "")])
+    far = RoadLocation("DEP", 12.0, 79.0)
+    also_far = RoadLocation("FAC", 12.5, 79.5)
+
+    result = roads.check(far, [at("SP-1", A), at("SP-2", C)], also_far)
+
+    assert result == RoadCheckResult(["DEP", "FAC"], [])
+
+
+def test_point_that_can_be_entered_but_not_left(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, ""), ("service", [B, X], ONE_WAY)])
+
+    result = roads.check(
+        at("DEP", A), [at("SP-1", along(B, X, 0.5)), at("SP-2", C)], at("FAC", C)
+    )
+
+    assert set(result.unreachable) == {"SP-1 → SP-2", "SP-1 → FAC"}
+
+
+def test_location_in_a_separate_road_group(tmp_path: Path) -> None:
+    island = [(78.80, 10.90), (78.81, 10.90)]
+    roads = network(tmp_path, [("primary", SPINE, ""), ("primary", island, "")])
+
+    result = roads.check(at("DEP", A), [at("SP-1", island[0]), at("SP-2", B)], at("FAC", C))
+
+    assert result.too_far == []
+    assert "DEP → SP-1" in result.unreachable
+    assert "SP-2 → SP-1" in result.unreachable
+    assert "SP-1 → FAC" in result.unreachable
+
+
+def test_depot_that_cannot_reach_a_point(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, ""), ("service", [Y, B], ONE_WAY)])
+
+    result = roads.check(
+        at("DEP", A), [at("SP-1", along(Y, B, 0.5)), at("SP-2", C)], at("FAC", C)
+    )
+
+    assert set(result.unreachable) == {"DEP → SP-1", "SP-2 → SP-1"}
+
+
+def test_point_that_cannot_reach_the_facility(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, ""), ("service", [Y, B], ONE_WAY)])
+
+    result = roads.check(
+        at("DEP", A), [at("SP-1", A), at("SP-2", C)], at("FAC", along(Y, B, 0.5))
+    )
+
+    assert set(result.unreachable) == {"SP-1 → FAC", "SP-2 → FAC"}
+
+
+def test_facility_needs_no_route_back_to_the_depot(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, ""), ("service", [B, X], ONE_WAY)])
+
+    result = roads.check(
+        at("DEP", A), [at("SP-1", A), at("SP-2", C)], at("FAC", along(B, X, 0.5))
+    )
+
+    assert result == RoadCheckResult([], [])
+
+
+def test_same_one_way_segment_connects_forward_only(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", [A, B], ONE_WAY)])
+
+    result = roads.check(
+        at("DEP", along(A, B, 0.1)),
+        [at("SP-1", along(A, B, 0.25)), at("SP-2", along(A, B, 0.75))],
+        at("FAC", along(A, B, 0.9)),
+    )
+
+    assert result == RoadCheckResult([], ["SP-2 → SP-1"])
+
+
+def test_same_one_way_segment_with_a_loop_connects_both_ways(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", [A, B, X, A], ONE_WAY)])
+
+    result = roads.check(
+        at("DEP", along(A, B, 0.1)),
+        [at("SP-1", along(A, B, 0.25)), at("SP-2", along(A, B, 0.75))],
+        at("FAC", along(A, B, 0.9)),
+    )
+
+    assert result == RoadCheckResult([], [])
+
+
+def test_identical_coordinates_connect(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", [A, B], ONE_WAY)])
+    spot = along(A, B, 0.5)
+
+    result = roads.check(
+        at("DEP", along(A, B, 0.1)), [at("SP-1", spot), at("SP-2", spot)], at("FAC", B)
+    )
+
+    assert result == RoadCheckResult([], [])

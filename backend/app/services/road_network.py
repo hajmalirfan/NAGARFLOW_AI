@@ -27,14 +27,17 @@ from pathlib import Path
 
 import networkx as nx
 
+from app.services.validation import RoadCheckResult, RoadLocation
+
 logger = logging.getLogger(__name__)
 
 Node = tuple[float, float]  # (longitude, latitude), rounded
 
 COORDINATE_PLACES = 7
-# Half of 111,320 m per degree, which keeps a grid cell wider than the snap
-# limit in longitude as well as latitude at any latitude below 60 degrees.
-METRES_PER_CELL_DEGREE = 55660
+METRES_PER_DEGREE = 111320
+# Half a degree of latitude's length, which keeps a grid cell wider than the
+# snap limit in longitude as well as latitude at any latitude below 60 degrees.
+METRES_PER_CELL_DEGREE = METRES_PER_DEGREE / 2
 
 TRUCK_ROADS = frozenset({
     "motorway", "trunk", "primary", "secondary", "tertiary", "unclassified",
@@ -175,3 +178,98 @@ def load_road_graph(path: Path, snap_max_m: float) -> RoadGraph:
     if not segments:
         raise RoadDataError(f"No usable roads found in {path}.")
     return RoadGraph(graph=graph, segments=segments, cells=cells, cell_deg=cell_deg)
+
+
+@dataclass(frozen=True)
+class _Snap:
+    """Where a location attaches to the road network."""
+
+    segment_index: int
+    fraction: float  # how far along the segment, from 0 at its start
+
+
+class GeoPackageRoadNetwork:
+    """Answers whether a scenario's trip can be driven."""
+
+    def __init__(self, road_graph: RoadGraph, snap_max_m: float) -> None:
+        self.road_graph = road_graph
+        self.snap_max_m = snap_max_m
+
+    def _snap(self, location: RoadLocation) -> _Snap | None:
+        """Attach a location to its nearest segment within the limit."""
+        road_graph = self.road_graph
+        centre_x, centre_y = _cell(location.longitude, location.latitude, road_graph.cell_deg)
+        candidates = {
+            index
+            for x in range(centre_x - 1, centre_x + 2)
+            for y in range(centre_y - 1, centre_y + 2)
+            for index in road_graph.cells.get((x, y), ())
+        }
+
+        # Flat metres around the location, which is accurate at this range.
+        metres_x = METRES_PER_DEGREE * math.cos(math.radians(location.latitude))
+
+        def project(node: Node) -> tuple[float, float]:
+            return (
+                (node[0] - location.longitude) * metres_x,
+                (node[1] - location.latitude) * METRES_PER_DEGREE,
+            )
+
+        best: tuple[float, int, float] | None = None
+        for index in sorted(candidates):
+            segment = road_graph.segments[index]
+            start_x, start_y = project(segment.start)
+            end_x, end_y = project(segment.end)
+            run_x, run_y = end_x - start_x, end_y - start_y
+            fraction = -(start_x * run_x + start_y * run_y) / (run_x**2 + run_y**2)
+            fraction = max(0.0, min(1.0, fraction))
+            distance = math.hypot(start_x + fraction * run_x, start_y + fraction * run_y)
+            if best is None or distance < best[0]:
+                best = (distance, index, fraction)
+
+        if best is None or best[0] > self.snap_max_m:
+            return None
+        return _Snap(segment_index=best[1], fraction=best[2])
+
+    def check(
+        self, depot: RoadLocation, points: list[RoadLocation], facility: RoadLocation
+    ) -> RoadCheckResult:
+        """Test every route the trip shape requires.
+
+        Depot to every point, every point to every other point (either
+        vehicle may visit them in any order), and every point to the
+        facility. The facility needs no route back, as the trip ends there.
+        """
+        segments = self.road_graph.segments
+        snaps = {
+            location.name: self._snap(location) for location in (depot, *points, facility)
+        }
+        too_far = [name for name, snap in snaps.items() if snap is None]
+        reachable: dict[Node, set[Node]] = {}
+
+        def connected(source: _Snap, target: _Snap) -> bool:
+            # Two spots on one segment: on a one-way road the end nodes alone
+            # would say a dead end cannot reach a spot just ahead on it.
+            if source.segment_index == target.segment_index and (
+                segments[source.segment_index].two_way or source.fraction <= target.fraction
+            ):
+                return True
+            leaves_by = segments[source.segment_index].end
+            if leaves_by not in reachable:
+                reachable[leaves_by] = nx.descendants(self.road_graph.graph, leaves_by) | {leaves_by}
+            return segments[target.segment_index].start in reachable[leaves_by]
+
+        routes = [(depot.name, point.name) for point in points]
+        routes.extend(
+            (first.name, second.name) for first in points for second in points if first != second
+        )
+        routes.extend((point.name, facility.name) for point in points)
+
+        unreachable = [
+            f"{source} → {target}"
+            for source, target in routes
+            if snaps[source] is not None
+            and snaps[target] is not None
+            and not connected(snaps[source], snaps[target])
+        ]
+        return RoadCheckResult(too_far=too_far, unreachable=unreachable)
