@@ -106,7 +106,7 @@
 
 - [ ] **Step 1: Write failing tests:** `test_report_always_has_ten_rows`; `test_state_not_loaded`; `test_state_not_run`; `test_state_blocked_shows_errors_and_no_distance`; `test_blocked_hides_an_older_batch`; `test_state_ran`; `test_infeasible_results_have_no_distance`; `test_summary_means_only_cases_where_both_found_routes`; `test_csv_leaves_no_route_blank`; `test_csv_neutralises_formulas` (Focus 3: leading `=`, `+`, `-`, `@` gain a leading `'`); `test_csv_matches_report`.
 - [ ] **Step 2: Run them.** Expected: FAIL.
-- [ ] **Step 3: Implement.** The state comes from the newest `ValidationRun` and the newest batch: blocked when the newest validation is not valid. Keep the module free of request objects.
+- [ ] **Step 3: Implement.** The state comes from the newest `ScenarioValidation` and the newest batch: blocked when the newest validation is not valid. Keep the module free of request objects.
 - [ ] **Step 4: Run them, then the full backend suite.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat: add the evaluation report and CSV`
 
