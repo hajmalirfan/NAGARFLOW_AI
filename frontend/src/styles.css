@@ -436,7 +436,7 @@ button { cursor: pointer; }
   padding: 10px 12px;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid var(--line, #e3e9e7);
+  border-bottom: 1px solid var(--line);
 }
 
 .history-pager {
@@ -444,4 +444,23 @@ button { cursor: pointer; }
   justify-content: flex-end;
   gap: 8px;
   margin-top: 12px;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+@media print {
+  .sidebar,
+  .topnav,
+  .report-actions {
+    display: none;
+  }
+
+  .report-scroll {
+    overflow: visible;
+  }
 }

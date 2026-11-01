@@ -270,6 +270,30 @@ export async function getOptimizationHistory(filters) {
   return request(`/api/v1/optimization-history?${query}`);
 }
 
+export async function loadEvaluationScenarios() {
+  return request("/api/v1/evaluation/scenarios", { method: "POST" });
+}
+
+export async function getEvaluationReport() {
+  return request("/api/v1/evaluation/report");
+}
+
+export async function downloadEvaluationCsv() {
+  const token = localStorage.getItem("nagarflow_token");
+  const response = await fetch(`${API_BASE_URL}/api/v1/evaluation/report.csv`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    throw new Error("The report could not be downloaded. Please try again.");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "nagarflow-evaluation.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function getScenarioValidations(id) {
   return request(`/api/v1/scenarios/${id}/validations`);
 }

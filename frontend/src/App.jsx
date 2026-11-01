@@ -16,6 +16,7 @@ import {
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PlaceholderPage from "./pages/PlaceholderPage.jsx";
 import { HistoryPage, HistoryRunPage } from "./pages/HistoryPage.jsx";
+import ReportsPage from "./pages/ReportsPage.jsx";
 import RouteOptimizationPage from "./pages/RouteOptimizationPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import {
@@ -37,13 +38,6 @@ import SignInPage from "./pages/SignInPage.jsx";
 
 // Sidebar destinations whose own development step has not been reached.
 const UPCOMING_PAGES = [
-  {
-    path: "reports",
-    title: "Reports",
-    kicker: "REPORTS",
-    step: "Phase 13",
-    description: "Comparison reports across algorithms and scenarios.",
-  },
   {
     path: "settings",
     title: "Settings",
@@ -67,6 +61,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/route-optimization" element={<RouteOptimizationPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/history/:scenarioId/:batchId" element={<HistoryRunPage />} />
             <Route path="/depot" element={<DepotListPage />} />
