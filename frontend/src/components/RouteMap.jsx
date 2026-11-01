@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { loadMaplibre } from "./maplibre.js";
 
 const VEHICLE_COLORS = ["#0f766e", "#c2410c"];
 
@@ -25,7 +26,7 @@ export default function RouteMap({ routes }) {
     let disposed = false;
     let map;
 
-    import("maplibre-gl")
+    loadMaplibre()
       .then(({ LngLatBounds, Map, Marker }) => {
         if (disposed || !containerRef.current) return;
         const bounds = new LngLatBounds();

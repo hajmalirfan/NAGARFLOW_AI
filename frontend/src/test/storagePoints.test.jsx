@@ -64,6 +64,7 @@ vi.mock("maplibre-gl", () => {
   }
 
   return {
+    setWorkerUrl() {},
     Map: MockMap,
     Marker: MockMarker,
     Popup: MockPopup,

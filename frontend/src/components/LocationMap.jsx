@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { loadMaplibre } from "./maplibre.js";
 
 const INITIAL_CENTER = [78.6856, 10.8050];
 
@@ -40,7 +41,7 @@ export default function LocationMap({
     let disposed = false;
     let map;
 
-    import("maplibre-gl")
+    loadMaplibre()
       .then(({ LngLatBounds, Map, Marker, Popup }) => {
         if (disposed || !containerRef.current) return;
         map = new Map({

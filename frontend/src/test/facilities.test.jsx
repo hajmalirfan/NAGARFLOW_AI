@@ -64,7 +64,7 @@ vi.mock("maplibre-gl", () => {
     extend() { return this; }
   }
 
-  return { Map: MockMap, Marker: MockMarker, Popup: MockPopup, LngLatBounds: MockBounds };
+  return { Map: MockMap, Marker: MockMarker, Popup: MockPopup, LngLatBounds: MockBounds, setWorkerUrl() {} };
 });
 
 vi.mock("../services/api.js", () => ({

@@ -19,7 +19,7 @@ vi.mock("maplibre-gl", () => {
     setDOMContent() { return this; }
     extend() { return this; }
   }
-  return { Map: Stub, Marker: Stub, Popup: Stub, LngLatBounds: Stub };
+  return { Map: Stub, Marker: Stub, Popup: Stub, LngLatBounds: Stub, setWorkerUrl() {} };
 });
 
 vi.mock("../services/api.js", () => ({
