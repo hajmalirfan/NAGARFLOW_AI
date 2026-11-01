@@ -222,6 +222,36 @@ trunk 50, primary 40, secondary 35, tertiary 30, unclassified 25, residential
 Only `feasible` and `optimal` results carry a distance. Optimizing a scenario
 that is not valid returns a 409 with the validation report.
 
+## Evaluation report
+
+**Reports** runs the S01–S10 evaluation cases. **Load evaluation scenarios**
+creates them as ordinary records named `SYNTH-`, and adds about 10 depots, 10
+facilities, 20 vehicles and 76 storage points to your lists. Pressing it again
+creates nothing new. **Run all** optimizes each case in turn, which takes about
+a minute and a half. **Download CSV** saves the same rows, and printing the page
+gives a PDF.
+
+All waste, capacity and time values in these cases are synthetic. Locations are
+OpenStreetMap road positions, not municipal sites. The cases live in
+`backend/app/evaluation/catalog`, and a file that no longer matches
+`manifest.json` is refused.
+
+A case that fails validation shows as **Blocked** with its reason, even if an
+older run exists, and never shows a distance. S04, S05 and S09 are blocked by
+design. A difference appears only where both methods found routes.
+
+## Optimization history
+
+**History** lists every paired run, newest first, and can be filtered by
+scenario and status. Opening a run shows that saved result and its map, which do
+not change if the scenario does.
+
+## Unexpected errors
+
+An unexpected server failure returns a plain message with a short reference.
+The details go only to the server log, under that reference. A page that crashes
+shows a recovery screen and leaves the rest of the app usable.
+
 ## Forgotten passwords
 
 From the sign-in screen, **Forgot password?** asks for an email address and the
