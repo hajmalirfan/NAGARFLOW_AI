@@ -61,29 +61,64 @@ MAX_STORAGE_POINTS = 10
 REQUIRED_VEHICLES = 2
 
 
+MAX_LISTED_ROUTES = 5
+
+ROAD_NETWORK_NOT_CONFIGURED_WARNING = {
+    "code": "ROAD_NETWORK_NOT_CONFIGURED",
+    "message": (
+        "Road connectivity has not been checked because no road network is "
+        "configured. A scenario is not marked valid until connectivity is "
+        "verified."
+    ),
+}
+
+
+@dataclass(frozen=True)
+class RoadLocation:
+    name: str
+    latitude: float
+    longitude: float
+
+
+@dataclass
+class RoadCheckResult:
+    """Why a scenario's trip cannot be driven, if it cannot.
+
+    ``too_far`` names locations beyond the snap limit from any road, and
+    ``unreachable`` lists failed required routes as ``"A → B"``.
+    """
+
+    too_far: list[str]
+    unreachable: list[str]
+
+
 class RoadNetwork(Protocol):
     """Supplies road reachability between the scenario's locations.
 
-    ``unreachable`` returns the locations that cannot be reached by road,
-    or ``None`` when no road network is available to answer the question.
+    ``check`` returns ``None`` when no road network is available to answer
+    the question.
     """
 
-    def unreachable(
-        self, locations: list[tuple[str, float, float]]
-    ) -> list[str] | None: ...
+    def check(
+        self, depot: RoadLocation, points: list[RoadLocation], facility: RoadLocation
+    ) -> RoadCheckResult | None: ...
 
 
 class NullRoadNetwork:
-    """Stands in until the OpenStreetMap road network lands in Step 11.
+    """Stands in whenever no usable road network is available.
 
     It answers ``None``: not "everything is reachable", but "this cannot
-    be determined yet". The engine then refuses to call the scenario
-    valid, instead of assuming connectivity it has not verified.
+    be determined". The engine then refuses to call the scenario valid,
+    instead of assuming connectivity it has not verified. ``warning`` says
+    why the check could not run.
     """
 
-    def unreachable(
-        self, locations: list[tuple[str, float, float]]
-    ) -> list[str] | None:
+    def __init__(self, warning: dict[str, str] = ROAD_NETWORK_NOT_CONFIGURED_WARNING) -> None:
+        self.warning = warning
+
+    def check(
+        self, depot: RoadLocation, points: list[RoadLocation], facility: RoadLocation
+    ) -> RoadCheckResult | None:
         return None
 
 
@@ -369,37 +404,41 @@ def validate_scenario(
             checks["vehicle_assignment"] = PASSED
 
     # Rule 10 - road connectivity.
-    locations: list[tuple[str, float, float]] = []
-    if depot is not None:
-        locations.append((depot.code or depot.name, depot.latitude, depot.longitude))
-    locations.extend((p.point_code, p.latitude, p.longitude) for p in points)
-    if facility is not None:
-        locations.append((facility.facility_code, facility.latitude, facility.longitude))
-
-    unreachable = network.unreachable(locations)
-    if unreachable is None:
-        checks["road_connectivity"] = NOT_CHECKED
-        warnings.append({
-            "code": "ROAD_NETWORK_NOT_CONFIGURED",
-            "message": (
-                "Road connectivity has not been checked because no road network is "
-                "configured. A scenario is not marked valid until connectivity is "
-                "verified."
-            ),
-        })
-    elif unreachable:
-        fail(
-            "road_connectivity",
-            "ROAD_UNREACHABLE",
-            f"These locations cannot be reached by road: {', '.join(unreachable)}.",
+    # Skipped when a location is missing or unusable: an earlier check has
+    # already failed the scenario, so there is nothing to ask of the roads.
+    if depot is not None and facility is not None and checks["coordinates"] == PASSED:
+        result = network.check(
+            RoadLocation(depot.code or depot.name, depot.latitude, depot.longitude),
+            [RoadLocation(p.point_code, p.latitude, p.longitude) for p in points],
+            RoadLocation(facility.facility_code, facility.latitude, facility.longitude),
         )
-    else:
-        checks["road_connectivity"] = PASSED
+        if result is None:
+            warnings.append(getattr(network, "warning", ROAD_NETWORK_NOT_CONFIGURED_WARNING))
+        else:
+            if result.too_far:
+                limit = f"{settings.road_snap_max_m:g}"
+                fail(
+                    "road_connectivity",
+                    "ROAD_TOO_FAR",
+                    f"These locations are more than {limit} m from a usable road: "
+                    f"{', '.join(result.too_far)}.",
+                )
+            if result.unreachable:
+                listed = ", ".join(result.unreachable[:MAX_LISTED_ROUTES])
+                others = len(result.unreachable) - MAX_LISTED_ROUTES
+                suffix = f", and {others} more" if others > 0 else ""
+                fail(
+                    "road_connectivity",
+                    "ROAD_UNREACHABLE",
+                    f"These required routes do not exist by road: {listed}{suffix}.",
+                )
+            if not result.too_far and not result.unreachable:
+                checks["road_connectivity"] = PASSED
 
     required_checks = [name for name in CHECK_ORDER]
     if not settings.require_road_connectivity:
-        # Explicit operator override for development before the road
-        # network exists. Logged every time so it cannot pass unnoticed.
+        # Explicit operator override for development when no road network
+        # is available. Logged every time so it cannot pass unnoticed.
         required_checks.remove("road_connectivity")
         if checks["road_connectivity"] == NOT_CHECKED:
             logger.warning(

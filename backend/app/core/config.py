@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,9 +20,12 @@ class Settings(BaseSettings):
 
     # Scenario validation. A scenario is only marked valid when road
     # connectivity has actually been checked. Setting this to false is an
-    # explicit development override for use before the OpenStreetMap road
-    # network lands; every validation that relies on it is logged.
+    # explicit development override for use when no road network is
+    # available; every validation that relies on it is logged.
     require_road_connectivity: bool = True
+    # How far a location may sit from a usable road. An assumption, not a
+    # measured figure.
+    road_snap_max_m: float = Field(default=200, gt=0)
 
     # Password reset
     reset_token_expire_minutes: int = 15

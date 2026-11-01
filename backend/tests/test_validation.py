@@ -22,7 +22,7 @@ from app.models import (
     User,
     Vehicle,
 )
-from app.services.validation import validate_scenario
+from app.services.validation import RoadCheckResult, RoadLocation, validate_scenario
 from app.models.scenario import (
     scenario_depots,
     scenario_facilities,
@@ -634,3 +634,118 @@ def test_all_failing_checks_are_reported_not_only_the_first(
     codes = error_codes(report)
     assert {"DEPOT_MISSING", "VEHICLE_COUNT", "STORAGE_POINT_COUNT", "FACILITY_MISSING"} <= codes
     assert report["validation_status"] == "invalid"
+
+
+# --- Rule 10: road connectivity ----------------------------------------
+
+
+class FakeRoadNetwork:
+    """Answers a fixed result, so engine tests need no road data."""
+
+    def __init__(
+        self, result: RoadCheckResult | None, warning: dict[str, str] | None = None
+    ) -> None:
+        self.result = result
+        self.calls: list[tuple] = []
+        if warning is not None:
+            self.warning = warning
+
+    def check(self, depot, points, facility) -> RoadCheckResult | None:
+        self.calls.append((depot, points, facility))
+        return self.result
+
+
+def run_road_check(result: RoadCheckResult | None):
+    return validate_scenario(None, stub_scenario(), FakeRoadNetwork(result))
+
+
+def test_clean_road_check_makes_the_scenario_valid() -> None:
+    report = run_road_check(RoadCheckResult(too_far=[], unreachable=[]))
+
+    assert report.checks["road_connectivity"] == "passed"
+    assert report.validation_status == "valid"
+    assert report.can_optimize is True
+
+
+def test_road_network_receives_each_location_by_its_code() -> None:
+    fake = FakeRoadNetwork(RoadCheckResult(too_far=[], unreachable=[]))
+
+    validate_scenario(None, stub_scenario(), fake)
+
+    depot, points, facility = fake.calls[0]
+    assert depot == RoadLocation("DEP-01", 10.79, 78.70)
+    assert [point.name for point in points][:2] == ["SP001", "SP002"]
+    assert facility == RoadLocation("FAC001", 10.81, 78.68)
+
+
+def test_location_too_far_from_a_road_is_named() -> None:
+    report = run_road_check(RoadCheckResult(too_far=["SP-1"], unreachable=[]))
+
+    assert report.checks["road_connectivity"] == "failed"
+    assert report.validation_status == "invalid"
+    error = next(e for e in report.errors if e["code"] == "ROAD_TOO_FAR")
+    assert "SP-1" in error["message"]
+    assert "200" in error["message"]
+
+
+def test_unreachable_message_lists_five_pairs_and_counts_the_rest() -> None:
+    pairs = [f"A{i} → B{i}" for i in range(7)]
+
+    report = run_road_check(RoadCheckResult(too_far=[], unreachable=pairs))
+
+    assert report.validation_status == "invalid"
+    message = next(e for e in report.errors if e["code"] == "ROAD_UNREACHABLE")["message"]
+    assert "A4 → B4" in message
+    assert "A5 → B5" not in message
+    assert "2 more" in message
+
+
+def test_both_road_errors_appear_together() -> None:
+    report = run_road_check(RoadCheckResult(too_far=["SP-1"], unreachable=["SP-2 → SP-3"]))
+
+    assert {"ROAD_TOO_FAR", "ROAD_UNREACHABLE"} <= {e["code"] for e in report.errors}
+
+
+def test_network_warning_is_reported_when_the_network_cannot_answer() -> None:
+    fake = FakeRoadNetwork(
+        None, warning={"code": "ROAD_NETWORK_UNAVAILABLE", "message": "File is unreadable."}
+    )
+
+    report = validate_scenario(None, stub_scenario(), fake)
+
+    assert report.checks["road_connectivity"] == "not_checked"
+    assert report.validation_status == "incomplete"
+    assert "ROAD_NETWORK_UNAVAILABLE" in {w["code"] for w in report.warnings}
+
+
+def test_road_check_is_skipped_when_coordinates_failed() -> None:
+    fake = FakeRoadNetwork(RoadCheckResult(too_far=[], unreachable=[]))
+
+    report = validate_scenario(None, stub_scenario(bad_latitude=True), fake)
+
+    assert fake.calls == []
+    assert report.checks["road_connectivity"] == "not_checked"
+    assert report.validation_status == "invalid"
+
+
+def test_road_check_is_skipped_without_a_depot() -> None:
+    scenario = stub_scenario()
+    scenario.depot = None
+    fake = FakeRoadNetwork(RoadCheckResult(too_far=[], unreachable=[]))
+
+    report = validate_scenario(None, scenario, fake)
+
+    assert fake.calls == []
+    assert report.validation_status == "invalid"
+
+
+def test_road_check_is_skipped_without_a_facility() -> None:
+    scenario = stub_scenario()
+    scenario.processing_facility = None
+    scenario.facilities = []
+    fake = FakeRoadNetwork(RoadCheckResult(too_far=[], unreachable=[]))
+
+    report = validate_scenario(None, scenario, fake)
+
+    assert fake.calls == []
+    assert report.validation_status == "invalid"
