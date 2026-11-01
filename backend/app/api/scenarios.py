@@ -422,7 +422,7 @@ def _method_run(run: OptimizationRun) -> MethodRun:
     )
 
 
-def _comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
+def build_comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
     by_algorithm = {run.algorithm: run for run in runs}
     greedy = by_algorithm[ALGORITHM_GREEDY]
     or_tools = by_algorithm[ALGORITHM_OR_TOOLS]
@@ -440,6 +440,7 @@ def _comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
         batch_id=greedy.batch_id,
         created_at=greedy.created_at,
         input_hash=greedy.input_hash,
+        provenance=greedy.provenance,
         greedy=_method_run(greedy),
         or_tools=_method_run(or_tools),
         difference_m=difference_m,
@@ -496,7 +497,7 @@ def optimize_scenario_endpoint(
                 "report": _report_response(report).model_dump(),
             },
         )
-    return _comparison(optimize_scenario(db, scenario, network))
+    return build_comparison(optimize_scenario(db, scenario, network))
 
 
 @router.get("/{scenario_id}/optimization", response_model=OptimizationComparison)
@@ -519,7 +520,28 @@ def latest_optimization(
             detail="This scenario has not been optimized yet.",
         )
     runs = db.scalars(select(OptimizationRun).where(OptimizationRun.batch_id == newest.batch_id))
-    return _comparison(list(runs))
+    return build_comparison(list(runs))
+
+
+@router.get("/{scenario_id}/optimization/{batch_id}", response_model=OptimizationComparison)
+def saved_optimization(
+    scenario_id: int,
+    batch_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OptimizationComparison:
+    """One saved comparison, reopened from the history."""
+    _get_owned_scenario(db, scenario_id, user)
+    runs = list(db.scalars(
+        select(OptimizationRun).where(
+            OptimizationRun.scenario_id == scenario_id, OptimizationRun.batch_id == batch_id
+        )
+    ))
+    if not runs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="This saved run does not exist."
+        )
+    return build_comparison(runs)
 
 
 @router.get("/{scenario_id}/validations", response_model=list[ValidationHistoryEntry])
