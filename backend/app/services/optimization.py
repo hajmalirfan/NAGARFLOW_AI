@@ -168,6 +168,17 @@ def _route_json(
     }
 
 
+def comparison_difference(
+    greedy_m: float | None, or_tools_m: float | None
+) -> tuple[float | None, float | None]:
+    """Greedy minus OR-Tools, in metres and percent, only when both have routes."""
+    if greedy_m is None or or_tools_m is None:
+        return None, None
+    difference_m = greedy_m - or_tools_m
+    # Every location at one spot gives a real 0 m total.
+    return difference_m, round(difference_m / greedy_m * 100, 2) if greedy_m else 0.0
+
+
 def run_provenance(scenario: Scenario) -> dict:
     """What produced a result, so it can be reviewed later."""
     return {

@@ -21,7 +21,7 @@ from app.schemas.scenario import ScenarioOptions, ScenarioResponse, ScenarioWrit
 from app.models.optimization_run import ALGORITHM_GREEDY, ALGORITHM_OR_TOOLS
 from app.schemas.optimization import MethodRun, OptimizationComparison
 from app.schemas.validation import ValidationHistoryEntry, ValidationReportResponse
-from app.services.optimization import optimize_scenario
+from app.services.optimization import comparison_difference, optimize_scenario
 from app.services.road_network import get_road_network
 from app.services.validation import (
     NullRoadNetwork,
@@ -427,13 +427,9 @@ def build_comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
     greedy = by_algorithm[ALGORITHM_GREEDY]
     or_tools = by_algorithm[ALGORITHM_OR_TOOLS]
 
-    difference_m = difference_pct = None
-    if greedy.total_distance_m is not None and or_tools.total_distance_m is not None:
-        difference_m = greedy.total_distance_m - or_tools.total_distance_m
-        difference_pct = (
-            round(difference_m / greedy.total_distance_m * 100, 2)
-            if greedy.total_distance_m else 0.0
-        )
+    difference_m, difference_pct = comparison_difference(
+        greedy.total_distance_m, or_tools.total_distance_m
+    )
 
     return OptimizationComparison(
         scenario_id=greedy.scenario_id,
