@@ -460,3 +460,55 @@ def test_routes_within_one_connected_group_need_no_search(
     result = roads.check(at("DEP", A), [at("SP-1", B), at("SP-2", B)], at("FAC", C))
 
     assert result == RoadCheckResult([], [])
+
+
+# --- Found in review ---------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf")])
+def test_non_finite_coordinates_skip_the_row(bad: float, tmp_path: Path) -> None:
+    ways = [("primary", [A, B], ""), ("primary", [(bad, 10.80), (78.73, 10.80)], "")]
+
+    assert load(tmp_path, ways).has_edge(A, B)
+
+
+def test_binary_tags_skip_the_row(tmp_path: Path) -> None:
+    ways = [("primary", [A, B], ""), ("primary", [B, C], b" binary")]
+
+    assert not load(tmp_path, ways).has_node(C)
+
+
+def test_off_road_depot_sharing_a_point_code_is_still_too_far(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, "")])
+    depot = RoadLocation("SHARED", 12.0, 70.0)
+
+    result = roads.check(depot, [at("SHARED", A), at("SP-2", B)], at("FAC", C))
+
+    assert result.too_far == ["SHARED"]
+
+
+def test_off_road_point_sharing_the_facility_code_is_still_too_far(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, "")])
+    point = RoadLocation("SHARED", 12.0, 70.0)
+
+    result = roads.check(at("DEP", A), [point, at("SP-2", B)], at("SHARED", C))
+
+    assert result.too_far == ["SHARED"]
+
+
+def test_location_sharing_a_code_is_checked_at_its_own_place(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, ""), ("service", [Y, B], ONE_WAY)])
+    point = at("SHARED", along(Y, B, 0.5))
+
+    result = roads.check(at("DEP", A), [point, at("SP-2", C)], at("SHARED", C))
+
+    assert "DEP → SHARED" in result.unreachable
+
+
+def test_a_shared_code_is_named_once(tmp_path: Path) -> None:
+    roads = network(tmp_path, [("primary", SPINE, "")])
+    far = RoadLocation("SHARED", 12.0, 70.0)
+
+    result = roads.check(far, [far, at("SP-2", B)], at("FAC", C))
+
+    assert result.too_far == ["SHARED"]

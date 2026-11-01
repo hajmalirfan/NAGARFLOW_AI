@@ -94,6 +94,8 @@ def _parse_line(blob: bytes) -> list[Node]:
     if kind != WKB_LINESTRING:
         raise ValueError("not a LineString")
     values = struct.unpack_from(f"{order}{2 * count}d", blob, offset + 9)
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError("non-finite coordinate")
     return [
         (round(values[i], COORDINATE_PLACES), round(values[i + 1], COORDINATE_PLACES))
         for i in range(0, len(values), 2)
@@ -157,10 +159,10 @@ def load_road_graph(path: Path, snap_max_m: float) -> RoadGraph:
             for highway, other_tags, geom in rows:
                 if highway not in TRUCK_ROADS:
                     continue
-                tags = dict(TAG_PATTERN.findall(other_tags or ""))
-                if _is_refused(tags):
-                    continue
                 try:
+                    tags = dict(TAG_PATTERN.findall(other_tags or ""))
+                    if _is_refused(tags):
+                        continue
                     nodes = _parse_line(geom)
                 except (struct.error, KeyError, IndexError, TypeError, ValueError):
                     skipped += 1
@@ -260,10 +262,13 @@ class GeoPackageRoadNetwork:
         """
         graph, groups = self.road_graph.graph, self.road_graph.groups
         segments = self.road_graph.segments
-        snaps = {
-            location.name: self._snap(location) for location in (depot, *points, facility)
-        }
-        too_far = [name for name, snap in snaps.items() if snap is None]
+        # By position, not name: codes are only unique within their own
+        # table, so a depot and a storage point may share one.
+        locations = [depot, *points, facility]
+        snaps = [self._snap(location) for location in locations]
+        too_far = list(dict.fromkeys(
+            location.name for location, snap in zip(locations, snaps) if snap is None
+        ))
         reachable: dict[Node, set[Node]] = {}
 
         def connected(source: _Snap, target: _Snap) -> bool:
@@ -281,14 +286,13 @@ class GeoPackageRoadNetwork:
                 reachable[leaves_by] = nx.descendants(graph, leaves_by) | {leaves_by}
             return enters_by in reachable[leaves_by]
 
-        routes = [(depot.name, point.name) for point in points]
-        routes.extend(
-            (first.name, second.name) for first in points for second in points if first != second
-        )
-        routes.extend((point.name, facility.name) for point in points)
+        stops = range(1, len(points) + 1)
+        routes = [(0, stop) for stop in stops]
+        routes.extend((first, second) for first in stops for second in stops if first != second)
+        routes.extend((stop, len(locations) - 1) for stop in stops)
 
         unreachable = [
-            f"{source} → {target}"
+            f"{locations[source].name} → {locations[target].name}"
             for source, target in routes
             if snaps[source] is not None
             and snaps[target] is not None
