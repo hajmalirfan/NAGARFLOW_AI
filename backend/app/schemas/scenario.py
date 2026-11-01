@@ -50,7 +50,11 @@ class ScenarioWrite(BaseModel):
     def shift_must_be_a_real_window(self) -> "ScenarioWrite":
         if (self.shift_start is None) != (self.shift_end is None):
             raise ValueError("Set both a shift start and a shift end, or neither.")
-        if self.shift_start is not None and self.shift_end <= self.shift_start:
+        if self.shift_start is None:
+            return self
+        if (self.shift_start.tzinfo is None) != (self.shift_end.tzinfo is None):
+            raise ValueError("Give both shift times in the same format.")
+        if self.shift_end <= self.shift_start:
             raise ValueError("The shift must end after it starts.")
         return self
 

@@ -391,13 +391,13 @@ def validate_scenario(
         point.point_code for point in points
         if shift_end is not None
         and point.available_from is not None
-        and point.available_from > shift_end
+        and point.available_from >= shift_end
     ]
     if too_late:
         fail(
             "availability",
             "AVAILABILITY_AFTER_SHIFT",
-            f"Waste at these points is not available until after the shift ends: "
+            f"Waste at these points is not available until the shift has ended: "
             f"{', '.join(too_late)}.",
         )
     else:

@@ -1,8 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
 from app.api.dashboard import router as dashboard_router
@@ -49,6 +51,23 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+
+
+# Registered before CORS so it runs inside it: a browser can only read a
+# 500 that carries the CORS headers.
+@app.middleware("http")
+async def report_unexpected_errors(request: Request, call_next) -> Response:
+    """Log an unexpected failure and give the caller a reference, not internals."""
+    try:
+        return await call_next(request)
+    except Exception:
+        reference = uuid4().hex[:8]
+        logging.getLogger(__name__).exception("Unexpected error, reference %s.", reference)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Something went wrong on the server.", "reference": reference},
+        )
+
 
 app.add_middleware(
     CORSMiddleware,

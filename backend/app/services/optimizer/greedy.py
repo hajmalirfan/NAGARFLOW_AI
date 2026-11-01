@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from app.services.optimizer.types import (
     FEASIBLE,
     NO_SOLUTION,
+    no_route_message,
     MethodResult,
     RoutingProblem,
     Stop,
@@ -81,7 +82,9 @@ def solve_greedy(problem: RoutingProblem) -> MethodResult:
 
         if move is None:
             stranded = ", ".join(problem.names[point] for point in remaining)
-            return _no_solution(started, f"No vehicle could take: {stranded}.")
+            return _no_solution(
+                started, no_route_message(problem, f"No vehicle could take: {stranded}.")
+            )
 
         vehicle, point, service = move
         arrival = vehicle.clock + problem.time_s[vehicle.position][point]

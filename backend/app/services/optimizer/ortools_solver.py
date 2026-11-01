@@ -17,6 +17,7 @@ from app.services.optimizer.types import (
     FEASIBLE,
     INFEASIBLE,
     NO_SOLUTION,
+    no_route_message,
     TIMEOUT,
     MethodResult,
     RoutingProblem,
@@ -141,7 +142,10 @@ def solve_ortools(problem: RoutingProblem, time_limit_s: int) -> MethodResult:
             return MethodResult(
                 INFEASIBLE, [], None, elapsed_ms(), "No route can satisfy every constraint."
             )
-        return MethodResult(NO_SOLUTION, [], None, elapsed_ms(), "The solver found no route.")
+        return MethodResult(
+            NO_SOLUTION, [], None, elapsed_ms(),
+            no_route_message(problem, "The solver found no route."),
+        )
 
     routes: list[VehicleRoute] = []
     for vehicle, vehicle_id in enumerate(problem.vehicle_ids):

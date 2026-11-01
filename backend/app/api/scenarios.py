@@ -24,6 +24,7 @@ from app.schemas.validation import ValidationHistoryEntry, ValidationReportRespo
 from app.services.optimization import optimize_scenario
 from app.services.road_network import get_road_network
 from app.services.validation import (
+    NullRoadNetwork,
     ValidationReport,
     record_validation,
     validate_scenario,
@@ -484,6 +485,14 @@ def optimize_scenario_endpoint(
             status_code=status.HTTP_409_CONFLICT,
             detail={
                 "message": "This scenario cannot be optimized until it passes validation.",
+                "report": _report_response(report).model_dump(),
+            },
+        )
+    if isinstance(network, NullRoadNetwork):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Routes need a road network, and none is available.",
                 "report": _report_response(report).model_dump(),
             },
         )

@@ -203,7 +203,7 @@ default, and reports the best route it found, not a proven optimum.
 A scenario may set a shift start and end. Each storage point may set when its
 waste becomes available. Under decision DEC-003, a vehicle that arrives early
 waits at the point until the waste is ready. A point that becomes available
-after the shift ends fails validation.
+at or after the end of the shift fails validation.
 
 Distances come from the road network. Travel times are estimates from assumed
 speeds in km/h, because no measured speeds exist for these roads: motorway and
@@ -215,7 +215,7 @@ trunk 50, primary 40, secondary 35, tertiary 30, unclassified 25, residential
 | `feasible` | Best route found, and it passed the checker. |
 | `optimal` | Proven best route, and it passed the checker. |
 | `no_solution` | The method found no route, though one may exist. |
-| `infeasible` | No route can meet the limits. |
+| `infeasible` | A pre-check proved no route can meet the limits. Most impossible problems report `no_solution` instead. |
 | `timeout` | Time ran out before any route was found. |
 | `invalid_result` | The checker rejected the route, so it is not shown. |
 

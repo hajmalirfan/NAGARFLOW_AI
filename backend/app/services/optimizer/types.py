@@ -62,6 +62,13 @@ class VehicleRoute:
     finish_s: int
 
 
+def no_route_message(problem: RoutingProblem, base: str) -> str:
+    """``base``, plus the likeliest cause when a shift limits the routes."""
+    if problem.shift_end_s is None:
+        return base
+    return f"{base} Check the shift length and the waste availability times."
+
+
 @dataclass
 class MethodResult:
     status: str
