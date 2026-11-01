@@ -34,6 +34,7 @@ const EMPTY_STORAGE_POINT = {
   longitude: "",
   waste_quantity_kg: "",
   availability_status: "available",
+  available_from: "",
   description: "",
 };
 
@@ -174,6 +175,7 @@ export function StoragePointFormPage() {
         longitude: point.longitude,
         waste_quantity_kg: point.waste_quantity_kg,
         availability_status: point.availability_status,
+        available_from: point.available_from?.slice(0, 16) ?? "",
         description: point.description ?? "",
       }))
       .catch((requestError) => setError(requestError.message))
@@ -234,6 +236,7 @@ export function StoragePointFormPage() {
       latitude: Number(form.latitude),
       longitude: Number(form.longitude),
       waste_quantity_kg: Number(form.waste_quantity_kg),
+      available_from: form.available_from || null,
       description: form.description.trim(),
     };
     try {
@@ -304,11 +307,15 @@ export function StoragePointFormPage() {
           </select>
         </label>
         <label className="scenario-field">
+          <span>Waste available from</span>
+          <input name="available_from" type="datetime-local" value={form.available_from} onChange={setField} />
+        </label>
+        <label className="scenario-field">
           <span>Description</span>
           <textarea name="description" value={form.description} onChange={setField} rows="3" maxLength="5000" />
         </label>
         <p className="storage-point-form-note">
-          Availability is recorded as a static status. Time-dependent collection rules are not enabled.
+          Times are Indian Standard Time. A vehicle that arrives early waits until the waste is available.
         </p>
         <div className="scenario-form-actions">
           <Link className="secondary-action" to={editing ? `/storage-points/${pointId}` : "/storage-points"}>Cancel</Link>

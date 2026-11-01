@@ -15,6 +15,7 @@ import {
 } from "./pages/ProcessingFacilityManagementPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PlaceholderPage from "./pages/PlaceholderPage.jsx";
+import RouteOptimizationPage from "./pages/RouteOptimizationPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import {
   StoragePointDetailPage,
@@ -35,13 +36,6 @@ import SignInPage from "./pages/SignInPage.jsx";
 
 // Sidebar destinations whose own development step has not been reached.
 const UPCOMING_PAGES = [
-  {
-    path: "route-optimization",
-    title: "Route Optimization",
-    kicker: "OPTIMIZATION",
-    step: "Phases 11 and 12",
-    description: "Run the Greedy baseline and Google OR-Tools, then compare the routes.",
-  },
   {
     path: "reports",
     title: "Reports",
@@ -71,6 +65,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/route-optimization" element={<RouteOptimizationPage />} />
             <Route path="/depot" element={<DepotListPage />} />
             <Route path="/depot/new" element={<DepotFormPage />} />
             <Route path="/depot/:depotId/edit" element={<DepotFormPage />} />

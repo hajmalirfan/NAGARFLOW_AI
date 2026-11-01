@@ -403,3 +403,14 @@ button { cursor: pointer; }
 .validation-warnings li { background: #fdfaf0; }
 .validation-warnings code { color: #7a6a44; }
 .validation-assignment h3 { margin: 0 0 4px; color: #1d4440; font-size: 12px; }
+
+.optimization-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 14px; }
+.optimization-controls .scenario-field { flex: 1 1 260px; margin: 0; }
+.optimization-distance { margin: 6px 0 2px; color: #163a37; font-size: 27px; font-weight: 700; }
+.optimization-difference { margin: 14px 0 4px; color: #163a37; font-weight: 600; }
+.optimization-toggle { display: flex; gap: 8px; margin: 14px 0; }
+.optimization-toggle button { padding: 8px 16px; border: 1px solid #cfdcd7; border-radius: 7px; color: #163a37; font: inherit; font-weight: 600; background: #fff; cursor: pointer; }
+.optimization-toggle button[aria-pressed="true"] { border-color: #123b3a; background: #123b3a; color: #fff; }
+.optimization-route + .optimization-route { margin-top: 16px; }
+.route-stop-marker, .route-end-marker { display: grid; place-items: center; width: 24px; height: 24px; border: 2px solid #fff; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; background: #123b3a; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+.route-end-marker { background: #b45309; }

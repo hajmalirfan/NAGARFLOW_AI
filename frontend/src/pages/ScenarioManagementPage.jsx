@@ -11,11 +11,11 @@ import {
   validateScenario,
 } from "../services/api.js";
 
-function PageError({ message }) {
+export function PageError({ message }) {
   return message ? <p className="form-error scenario-error" role="alert">{message}</p> : null;
 }
 
-function PageHeading({ kicker, title, subtitle, action }) {
+export function PageHeading({ kicker, title, subtitle, action }) {
   return (
     <div className="page-head">
       <div>
@@ -108,6 +108,8 @@ const EMPTY_FORM = {
   vehicle_ids: [],
   storage_point_ids: [],
   status: "draft",
+  shift_start: "",
+  shift_end: "",
 };
 
 function idsFromScenario(scenario) {
@@ -119,6 +121,8 @@ function idsFromScenario(scenario) {
     vehicle_ids: scenario.vehicles.map((vehicle) => String(vehicle.id)),
     storage_point_ids: scenario.storage_points.map((point) => String(point.id)),
     status: scenario.status,
+    shift_start: scenario.shift_start?.slice(0, 16) ?? "",
+    shift_end: scenario.shift_end?.slice(0, 16) ?? "",
   };
 }
 
@@ -186,6 +190,8 @@ export function ScenarioFormPage() {
       facility_id: Number(form.facility_id),
       vehicle_ids: form.vehicle_ids.map(Number),
       storage_point_ids: form.storage_point_ids.map(Number),
+      shift_start: form.shift_start || null,
+      shift_end: form.shift_end || null,
     };
     try {
       const scenario = editing
@@ -230,6 +236,16 @@ export function ScenarioFormPage() {
           <span>Description</span>
           <textarea name="description" value={form.description} onChange={setField} rows="3" maxLength="5000" />
         </label>
+        <div className="scenario-form-grid">
+          <label className="scenario-field">
+            <span>Shift start</span>
+            <input name="shift_start" type="datetime-local" value={form.shift_start} onChange={setField} />
+          </label>
+          <label className="scenario-field">
+            <span>Shift end</span>
+            <input name="shift_end" type="datetime-local" value={form.shift_end} onChange={setField} />
+          </label>
+        </div>
         <div className="scenario-form-grid">
           <label className="scenario-field">
             <span>Depot</span>

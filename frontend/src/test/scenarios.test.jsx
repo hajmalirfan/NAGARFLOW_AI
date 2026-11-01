@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -130,6 +130,8 @@ describe("scenario management", () => {
     await userEventInstance.click(screen.getByRole("button", { name: "Create scenario" }));
 
     await waitFor(() => expect(api.createScenario).toHaveBeenCalledWith({
+      shift_start: null,
+      shift_end: null,
       name: "Weekly collection",
       description: "Routine service",
       depot_id: 1,
@@ -140,4 +142,28 @@ describe("scenario management", () => {
     }));
     expect(await screen.findByRole("heading", { name: "Weekly collection" })).toBeInTheDocument();
   });
+});
+
+test("it saves shift times on a scenario", async () => {
+  api.getCurrentUser.mockResolvedValue(user);
+  api.getScenarioOptions.mockResolvedValue(configuredOptions);
+  api.getScenario.mockResolvedValue({
+    ...createdScenario,
+    shift_start: "2026-11-03T06:00:00",
+    shift_end: "2026-11-03T14:00:00",
+  });
+  api.updateScenario.mockResolvedValue(createdScenario);
+  renderApp("/scenarios/4/edit");
+
+  expect(await screen.findByLabelText("Shift start")).toHaveValue("2026-11-03T06:00");
+  fireEvent.change(screen.getByLabelText("Shift end"), { target: { value: "2026-11-03T15:00" } });
+  await userEvent.click(screen.getByRole("button", { name: /save/i }));
+
+  await waitFor(() => expect(api.updateScenario).toHaveBeenCalledWith(
+    "4",
+    expect.objectContaining({
+      shift_start: "2026-11-03T06:00",
+      shift_end: "2026-11-03T15:00",
+    }),
+  ));
 });

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -192,6 +192,7 @@ describe("storage point management", () => {
     await user.click(screen.getByRole("button", { name: "Add storage point" }));
 
     await waitFor(() => expect(api.createStoragePoint).toHaveBeenCalledWith({
+      available_from: null,
       name: "Central Market",
       point_code: "SP001",
       address: "",
@@ -220,6 +221,7 @@ describe("storage point management", () => {
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(api.updateStoragePoint).toHaveBeenCalledWith("9", {
+      available_from: null,
       name: "Central Market",
       point_code: "SP001",
       address: "Central Market, Trichy",
@@ -277,5 +279,20 @@ describe("storage point management", () => {
     await user.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() => expect(api.deleteStoragePoint).toHaveBeenCalledWith(9));
     expect(await screen.findByRole("heading", { name: "No storage points registered" })).toBeInTheDocument();
+  });
+
+  test("saves when waste becomes available", async () => {
+    const user = userEvent.setup();
+    api.updateStoragePoint.mockResolvedValue(point);
+    renderApp("/storage-points/9/edit");
+
+    const field = await screen.findByLabelText("Waste available from");
+    fireEvent.change(field, { target: { value: "2026-11-03T09:30" } });
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(api.updateStoragePoint).toHaveBeenCalledWith(
+      "9",
+      expect.objectContaining({ available_from: "2026-11-03T09:30" }),
+    ));
   });
 });

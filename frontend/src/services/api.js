@@ -25,6 +25,7 @@ async function request(path, options = {}) {
   if (!response.ok) {
     const error = new Error(describeFailure(response, data, path));
     error.status = response.status;
+    error.report = data.detail?.report;
     throw error;
   }
   return data;
@@ -48,6 +49,9 @@ function describeFailure(response, data, path) {
   }
   if (Array.isArray(data.detail)) {
     return data.detail.map((issue) => issue.msg).join(" ");
+  }
+  if (typeof data.detail?.message === "string") {
+    return data.detail.message;
   }
   if (response.status >= 500) {
     return (
@@ -245,6 +249,14 @@ export async function deleteFacility(id) {
 
 export async function validateScenario(id) {
   return request(`/api/v1/scenarios/${id}/validate`, { method: "POST" });
+}
+
+export async function optimizeScenario(id) {
+  return request(`/api/v1/scenarios/${id}/optimize`, { method: "POST" });
+}
+
+export async function getLatestOptimization(id) {
+  return request(`/api/v1/scenarios/${id}/optimization`);
 }
 
 export async function getScenarioValidations(id) {
