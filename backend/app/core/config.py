@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # The OpenStreetMap GeoPackage. A relative path starts at the repository
     # root. Empty means no road network, so scenarios stay incomplete.
     road_network_path: str = ""
+    # How long OR-Tools may search. It uses the whole limit, because guided
+    # local search keeps improving until time runs out.
+    optimizer_time_limit_s: int = Field(default=10, gt=0)
 
     # Password reset
     reset_token_expire_minutes: int = 15

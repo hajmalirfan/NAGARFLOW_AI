@@ -6,8 +6,13 @@ can be checked by eye.
 """
 
 from dataclasses import replace
+from decimal import Decimal
 
+import pytest
+
+from app.services.optimizer import ortools_solver
 from app.services.optimizer.greedy import solve_greedy
+from app.services.optimizer.ortools_solver import solve_ortools
 from app.services.optimizer.result_check import check_result
 from app.services.optimizer.types import MethodResult, RoutingProblem, Stop, VehicleRoute
 
@@ -216,3 +221,116 @@ def test_greedy_avoids_a_leg_with_no_path() -> None:
 
     assert result.status == "feasible"
     assert check_result(problem, result) == []
+
+
+# --- OR-Tools ----------------------------------------------------------
+
+LIMIT_S = 1
+
+
+def short_sighted() -> RoutingProblem:
+    """Depot at 10 and facility at 0. Greedy splits the work: 40 m against 30 m."""
+    return problem_from([10, 9, 20, 0], [5, 5])
+
+
+def test_greedy_is_short_sighted_on_the_fixture() -> None:
+    assert solve_greedy(short_sighted()).total_distance_m == 40
+
+
+def test_ortools_beats_greedy_where_greedy_is_short_sighted() -> None:
+    assert solve_ortools(short_sighted(), LIMIT_S).total_distance_m == 30
+
+
+def test_ortools_says_feasible_not_optimal() -> None:
+    assert solve_ortools(short_sighted(), LIMIT_S).status == "feasible"
+
+
+def test_ortools_serves_every_point() -> None:
+    result = solve_ortools(problem_from([0, 10, 20, 30, 40], [5, 5, 5]), LIMIT_S)
+
+    assert sorted(code for route in codes(result) for code in route) == ["P1", "P2", "P3"]
+
+
+def test_ortools_respects_capacity() -> None:
+    result = solve_ortools(problem_from([0, 10, 20, 30], [6, 6], capacities=(10, 10)), LIMIT_S)
+
+    assert len(result.routes) == 2
+    assert all(route.load_g <= 10 for route in result.routes)
+
+
+def test_ortools_fits_a_load_exactly_at_capacity() -> None:
+    grams = int(Decimal("1234.56") * 1000)
+    problem = problem_from([0, 10, 20], [grams], capacities=(grams, 1), facility_capacity_g=grams)
+
+    assert solve_ortools(problem, LIMIT_S).status == "feasible"
+
+
+def test_ortools_leaves_a_vehicle_unused_when_shorter() -> None:
+    assert len(solve_ortools(short_sighted(), LIMIT_S).routes) == 1
+
+
+def test_ortools_waits_for_late_waste() -> None:
+    result = solve_ortools(problem_from([0, 10, 20], [5], ready=[100]), LIMIT_S)
+
+    assert result.total_distance_m == 20
+    stop = result.routes[0].stops[0]
+    assert (stop.arrival_s, stop.service_s, stop.wait_s) == (10, 100, 90)
+
+
+def test_ortools_enforces_shift_end() -> None:
+    problem = problem_from([0, 10, 20], [5], ready=[100], shift_end_s=50)
+
+    result = solve_ortools(problem, LIMIT_S)
+
+    assert result.status in ("infeasible", "no_solution")
+    assert result.total_distance_m is None
+    assert result.routes == []
+
+
+def test_ortools_reports_impossible_capacity_as_not_feasible() -> None:
+    problem = problem_from([0, 10, 20], [50], capacities=(10, 10))
+
+    result = solve_ortools(problem, LIMIT_S)
+
+    assert result.status in ("infeasible", "no_solution")
+    assert result.total_distance_m is None
+
+
+def test_ortools_refuses_a_total_over_facility_capacity() -> None:
+    problem = problem_from([0, 10, 20], [50], facility_capacity_g=40)
+
+    assert solve_ortools(problem, LIMIT_S).status == "infeasible"
+
+
+def test_ortools_avoids_a_leg_with_no_path() -> None:
+    problem = problem_from([0, 10, 20, 30], [5, 5], capacities=(10, 10), blocked=((1, 2),))
+
+    result = solve_ortools(problem, LIMIT_S)
+
+    assert result.status == "feasible"
+    assert check_result(problem, result) == []
+
+
+def test_ortools_timeout_has_no_distance(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        ortools_solver, "_search",
+        lambda routing, parameters: (None, ortools_solver.STATUS_TIMEOUT),
+    )
+
+    result = solve_ortools(short_sighted(), LIMIT_S)
+
+    assert result.status == "timeout"
+    assert result.total_distance_m is None
+    assert result.routes == []
+
+
+def test_ortools_visits_a_zero_waste_point() -> None:
+    assert codes(solve_ortools(problem_from([0, 10, 20], [0]), LIMIT_S)) == [["P1"]]
+
+
+def test_every_ortools_result_passes_the_checker() -> None:
+    problem = problem_from(
+        [0, 40, 10, 30, 20, 50], [5, 5, 5, 5], capacities=(10, 10), ready=[0, 60, 0, 0]
+    )
+
+    assert check_result(problem, solve_ortools(problem, LIMIT_S)) == []
