@@ -45,7 +45,7 @@ function describeFailure(response, data, path) {
     );
   }
   if (typeof data.detail === "string") {
-    return data.detail;
+    return data.reference ? `${data.detail} Reference: ${data.reference}.` : data.detail;
   }
   if (Array.isArray(data.detail)) {
     return data.detail.map((issue) => issue.msg).join(" ");
@@ -257,6 +257,17 @@ export async function optimizeScenario(id) {
 
 export async function getLatestOptimization(id) {
   return request(`/api/v1/scenarios/${id}/optimization`);
+}
+
+export async function getOptimizationBatch(id, batchId) {
+  return request(`/api/v1/scenarios/${id}/optimization/${batchId}`);
+}
+
+export async function getOptimizationHistory(filters) {
+  const query = new URLSearchParams(
+    Object.entries(filters).filter(([, value]) => value !== ""),
+  );
+  return request(`/api/v1/optimization-history?${query}`);
 }
 
 export async function getScenarioValidations(id) {

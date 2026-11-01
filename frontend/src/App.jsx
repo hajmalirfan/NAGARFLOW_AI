@@ -15,6 +15,7 @@ import {
 } from "./pages/ProcessingFacilityManagementPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import PlaceholderPage from "./pages/PlaceholderPage.jsx";
+import { HistoryPage, HistoryRunPage } from "./pages/HistoryPage.jsx";
 import RouteOptimizationPage from "./pages/RouteOptimizationPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
 import {
@@ -66,6 +67,8 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/route-optimization" element={<RouteOptimizationPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/history/:scenarioId/:batchId" element={<HistoryRunPage />} />
             <Route path="/depot" element={<DepotListPage />} />
             <Route path="/depot/new" element={<DepotFormPage />} />
             <Route path="/depot/:depotId/edit" element={<DepotFormPage />} />

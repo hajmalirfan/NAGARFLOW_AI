@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { BrandMark } from "./common.jsx";
+import ErrorBoundary from "./ErrorBoundary.jsx";
 
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: "grid" },
@@ -11,6 +12,7 @@ const NAV_ITEMS = [
   { to: "/storage-points", label: "Storage Points", icon: "pin" },
   { to: "/facility", label: "Processing Facility", icon: "factory" },
   { to: "/route-optimization", label: "Route Optimization", icon: "route" },
+  { to: "/history", label: "History", icon: "clock" },
   { to: "/reports", label: "Reports", icon: "chart" },
   { to: "/settings", label: "Settings", icon: "cog" },
 ];
@@ -24,6 +26,7 @@ const ICON_PATHS = {
   pin: "M12 21s6.5-6.1 6.5-11A6.5 6.5 0 0 0 5.5 10c0 4.9 6.5 11 6.5 11m0-9.2a1.9 1.9 0 1 0 0-3.8 1.9 1.9 0 0 0 0 3.8",
   route: "M6 4.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4M18 15.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4M6 8.5v3a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3",
   chart: "M4 20V5m0 15h16M8 20v-6m4 6V9m4 11v-8",
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2",
   cog: "M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.3-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.6 0z",
 };
 
@@ -185,7 +188,9 @@ export default function AppLayout() {
           onSignOut={handleSignOut}
         />
         <main className="app-content">
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>
