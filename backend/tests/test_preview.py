@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.evaluation.catalog_loader import load_catalog
 from app.models import OptimizationRun, Scenario, User
+from app.services.evaluation_report import build_report
 from test_roles import headers_for, linked_user
 
 NAMES = "/api/v1/scenarios/names"
@@ -227,3 +228,72 @@ def test_another_workspace_gets_404(
 
     assert client.get(routes_url(scenario), headers=headers_for(other)).status_code == 404
     assert client.get(facility_url(scenario), headers=headers_for(other)).status_code == 404
+
+
+def scenario_payload(scenario: Scenario) -> dict:
+    return {
+        "name": scenario.name, "description": scenario.description or "",
+        "depot_id": scenario.depot.id, "facility_id": scenario.processing_facility.id,
+        "vehicle_ids": [vehicle.id for vehicle in scenario.selected_vehicles],
+        "storage_point_ids": [point.id for point in scenario.selected_storage_points],
+        "status": scenario.status,
+        "shift_start": scenario.shift_start.isoformat() if scenario.shift_start else None,
+        "shift_end": scenario.shift_end.isoformat() if scenario.shift_end else None,
+    }
+
+
+def save(client: TestClient, planner: User, scenario: Scenario, payload: dict) -> None:
+    response = client.put(
+        f"/api/v1/scenarios/{scenario.id}", headers=headers_for(planner), json=payload
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_dropping_a_point_marks_the_preview_out_of_date(
+    client: TestClient, db_session: Session, planner: User, scenario: Scenario,
+    driver: dict[str, str],
+) -> None:
+    add_good_batch(db_session, scenario)
+    payload = scenario_payload(scenario)
+    payload["storage_point_ids"] = payload["storage_point_ids"][1:]
+
+    save(client, planner, scenario, payload)
+
+    assert client.get(routes_url(scenario), headers=driver).json()["out_of_date"] is True
+
+
+def test_swapping_the_facility_marks_the_preview_out_of_date(
+    client: TestClient, db_session: Session, planner: User, scenario: Scenario,
+    facility: dict[str, str],
+) -> None:
+    add_good_batch(db_session, scenario)
+    other = load_catalog(db_session, planner)[1].processing_facility
+    payload = scenario_payload(scenario)
+    payload["facility_id"] = other.id
+
+    save(client, planner, scenario, payload)
+
+    assert client.get(facility_url(scenario), headers=facility).json()["out_of_date"] is True
+
+
+def test_saving_the_same_selection_keeps_the_preview_current(
+    client: TestClient, db_session: Session, planner: User, scenario: Scenario,
+    driver: dict[str, str],
+) -> None:
+    add_good_batch(db_session, scenario)
+
+    save(client, planner, scenario, scenario_payload(scenario))
+
+    assert client.get(routes_url(scenario), headers=driver).json()["out_of_date"] is False
+
+
+def test_a_changed_selection_also_marks_the_report_out_of_date(
+    client: TestClient, db_session: Session, planner: User, scenario: Scenario
+) -> None:
+    add_good_batch(db_session, scenario)
+    payload = scenario_payload(scenario)
+    payload["storage_point_ids"] = payload["storage_point_ids"][1:]
+
+    save(client, planner, scenario, payload)
+
+    assert build_report(db_session, planner)["rows"][0]["state"] == "out_of_date"

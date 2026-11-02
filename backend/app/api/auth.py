@@ -136,15 +136,19 @@ def verify_reset_token(
 
 @router.post("/reset-password", response_model=MessageResponse)
 def reset_password(
-    payload: ResetPasswordRequest, db: Session = Depends(get_db)
+    payload: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)
 ) -> MessageResponse:
     """Set a new password using a valid reset token."""
     try:
-        password_reset_service.reset_password(db, payload.token, payload.password)
+        user = password_reset_service.reset_password(db, payload.token, payload.password)
     except InvalidResetToken:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=INVALID_TOKEN_MESSAGE
         ) from None
+    # The caller proved they own the mailbox, and is often here because of
+    # failed logins, so the new password must work straight away.
+    for key in limit_keys(request, user.email):
+        login_limiter.clear(key)
     return MessageResponse(
         message="Your password has been updated. You can now sign in."
     )

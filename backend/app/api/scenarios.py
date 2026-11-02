@@ -6,6 +6,7 @@ from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.dependencies import get_db, require
+from app.core.clock import utcnow
 from app.core.permissions import workspace_owner_id
 from app.models import (
     Depot,
@@ -193,6 +194,16 @@ def _validated_resources(
     return depot, facility, vehicles, points
 
 
+def _selection(scenario: Scenario) -> tuple:
+    depot, facility = scenario.depot, scenario.processing_facility
+    return (
+        depot.id if depot else None,
+        facility.id if facility else None,
+        sorted(vehicle.id for vehicle in scenario.selected_vehicles),
+        sorted(point.id for point in scenario.selected_storage_points),
+    )
+
+
 def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user: User) -> None:
     name = payload.name.strip()
     if not name:
@@ -208,6 +219,7 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
         raise HTTPException(status_code=409, detail="A scenario with this name already exists.")
 
     depot, facility, vehicles, points = _validated_resources(db, payload, user)
+    selected_before = _selection(scenario)
     scenario.name = name
     scenario.description = payload.description.strip()
     scenario.status = payload.status
@@ -217,6 +229,10 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
     scenario.processing_facility = facility
     scenario.selected_vehicles = vehicles
     scenario.selected_storage_points = points
+    # These live in other tables, so the row itself may not change. Saved
+    # runs are judged out of date against this timestamp.
+    if _selection(scenario) != selected_before:
+        scenario.updated_at = utcnow()
 
 
 @router.get("/names", response_model=list[ScenarioName])

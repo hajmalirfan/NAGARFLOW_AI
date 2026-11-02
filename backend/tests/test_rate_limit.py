@@ -1,9 +1,17 @@
 """Repeated login and password reset requests are limited, and reveal nothing."""
 
+from datetime import timedelta
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.core.clock import utcnow
 from app.core.rate_limit import RateLimiter, login_limiter
+from app.core.security import hash_reset_token
+from app.models import User
+from app.models.password_reset_token import PasswordResetToken
 
 LOGIN = "/api/v1/auth/login"
 FORGOT = "/api/v1/auth/forgot-password"
@@ -127,3 +135,40 @@ def test_expired_keys_are_removed() -> None:
     limiter.record("d")
 
     assert limiter.size() == 1
+
+
+def test_a_password_reset_lifts_the_login_limit(
+    client: TestClient, registered_user: dict[str, str], db_session: Session
+) -> None:
+    fail_login(client, registered_user["email"], 5)
+    user = db_session.scalar(select(User).where(User.email == registered_user["email"]))
+    db_session.add(PasswordResetToken(
+        user_id=user.id, token_hash=hash_reset_token("reset-token"), created_at=utcnow(),
+        expires_at=utcnow() + timedelta(minutes=15),
+    ))
+    db_session.commit()
+
+    reset = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": "reset-token", "password": "a-new-password-123"},
+    )
+
+    assert reset.status_code == 200
+    login = client.post(
+        LOGIN, json={"email": registered_user["email"], "password": "a-new-password-123"}
+    )
+    assert login.status_code == 200
+
+
+def test_a_failed_password_reset_leaves_the_limit(
+    client: TestClient, registered_user: dict[str, str]
+) -> None:
+    fail_login(client, registered_user["email"], 5)
+
+    reset = client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": "not-a-real-token", "password": "a-new-password-123"},
+    )
+
+    assert reset.status_code == 400
+    assert fail_login(client, registered_user["email"]) == 429

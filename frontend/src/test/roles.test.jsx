@@ -16,6 +16,12 @@ const DEPOT = {
 const SCENARIO = {
   id: 1, reference: "S-1", name: "Plan", description: "", status: "draft", depot: DEPOT,
   processing_facility: null, vehicles: [], storage_points: [],
+  created_at: "2026-01-01T00:00:00", updated_at: "2026-01-01T00:00:00",
+};
+const SAVED_VALIDATION = {
+  id: 9, scenario_id: 1, validation_status: "invalid", can_optimize: false, checks: {},
+  errors: [{ code: "FACILITY_CAPACITY", message: "Too much waste." }], warnings: [],
+  total_waste_kg: 100, storage_point_count: 6,
 };
 const REPORT = {
   rows: [],
@@ -134,6 +140,33 @@ describe("role access", () => {
     expect(screen.queryByRole("button", { name: /validate/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /proceed/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /edit scenario/i })).not.toBeInTheDocument();
+  });
+
+  test("shows a reviewer the newest saved validation", async () => {
+    api.getScenarioValidations.mockResolvedValue([{
+      ...SAVED_VALIDATION, created_at: "2026-02-02T00:00:00",
+    }]);
+    renderAt("/scenarios/1", "reviewer");
+
+    expect(await screen.findByText("Scenario is not feasible")).toBeInTheDocument();
+    expect(screen.getByText("Too much waste.")).toBeInTheDocument();
+  });
+
+  test("tells a reviewer when no validation has been saved", async () => {
+    renderAt("/scenarios/1", "reviewer");
+
+    expect(await screen.findByText("This scenario has not been validated yet.")).toBeInTheDocument();
+  });
+
+  test("flags a saved validation older than the scenario", async () => {
+    api.getScenarioValidations.mockResolvedValue([{
+      ...SAVED_VALIDATION, created_at: "2025-01-01T00:00:00",
+    }]);
+    renderAt("/scenarios/1", "reviewer");
+
+    expect(await screen.findByText(
+      "The scenario changed after this check, so it may no longer apply.",
+    )).toBeInTheDocument();
   });
 
   test("hides Run from a reviewer on the route page", async () => {

@@ -7,6 +7,7 @@ import {
   deleteScenario,
   getScenario,
   getScenarioOptions,
+  getScenarioValidations,
   getScenarios,
   updateScenario,
   validateScenario,
@@ -321,6 +322,7 @@ export function ScenarioDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [report, setReport] = useState(null);
+  const [savedValidation, setSavedValidation] = useState(null);
   const [validating, setValidating] = useState(false);
 
   useEffect(() => {
@@ -335,6 +337,14 @@ export function ScenarioDetailPage() {
   useEffect(() => {
     setReport(null);
   }, [scenarioId, scenario?.updated_at]);
+
+  // Only a planner can run a check, so other readers see the newest saved one.
+  useEffect(() => {
+    if (canWrite) return;
+    getScenarioValidations(scenarioId)
+      .then((saved) => setSavedValidation(saved[0] ?? null))
+      .catch((requestError) => setError(requestError.message));
+  }, [canWrite, scenarioId]);
 
   async function runValidation() {
     setValidating(true);
@@ -397,6 +407,12 @@ export function ScenarioDetailPage() {
         )}
       />
       <PageError message={error} />
+      {!canWrite && !savedValidation && (
+        <p className="panel-note">This scenario has not been validated yet.</p>
+      )}
+      {savedValidation && savedValidation.created_at < scenario.updated_at && (
+        <p className="notice">The scenario changed after this check, so it may no longer apply.</p>
+      )}
       <div className="scenario-detail-grid">
         <article className="panel">
           <div className="panel-head"><h2>Planning setup</h2><span className={`pill ${scenario.status === "ready" ? "pill-ok" : "pill-neutral"}`}>{scenario.status}</span></div>
@@ -416,7 +432,7 @@ export function ScenarioDetailPage() {
           {scenario.storage_points.length ? <ul className="scenario-resource-list">{scenario.storage_points.map((point) => <li key={point.id}><span>{point.name}</span><small>{point.waste_kg.toLocaleString()} kg{point.waste_type ? ` · ${point.waste_type}` : ""}</small></li>)}</ul> : <p className="scenario-help">No storage points selected.</p>}
         </article>
       </div>
-      <ValidationReport report={report} />
+      <ValidationReport report={report ?? savedValidation} />
       <Link className="panel-link scenario-back-link" to="/scenarios">← All scenarios</Link>
     </section>
   );
