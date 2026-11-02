@@ -1,12 +1,9 @@
-import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db
-from app.core.config import settings
+from app.api.dependencies import get_db, require
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import (
@@ -24,7 +21,6 @@ from app.services import password_reset as password_reset_service
 from app.services.password_reset import InvalidResetToken
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
-bearer_scheme = HTTPBearer()
 
 # Shown for an unknown, expired, or already used reset link. It is
 # deliberately the same message in all three cases.
@@ -70,32 +66,8 @@ def login(payload: UserLogin, db: Session = Depends(get_db)) -> AuthResponse:
     return issue_auth_response(user)
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
-) -> User:
-    try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-        )
-        user_id = int(payload["sub"])
-    except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your session has expired. Please sign in again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from None
-
-    user = db.get(User, user_id)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account not found.")
-    return user
-
-
 @router.get("/me", response_model=UserResponse)
-def read_current_user(user: User = Depends(get_current_user)) -> User:
+def read_current_user(user: User = Depends(require("account"))) -> User:
     return user
 
 

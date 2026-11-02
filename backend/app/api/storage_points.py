@@ -4,8 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.auth import get_current_user
-from app.api.dependencies import get_db, reject_reserved_code
+from app.api.dependencies import get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.models import Scenario, StoragePoint, User
 from app.models.scenario import scenario_storage_points
@@ -133,7 +132,7 @@ def _serialize(point: StoragePoint) -> StoragePointResponse:
 def create_storage_point(
     payload: StoragePointWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> StoragePointResponse:
     reject_reserved_code(payload.point_code)
     _validate_point_code(db, payload.point_code)
@@ -159,7 +158,7 @@ def create_storage_point(
 @router.get("", response_model=list[StoragePointResponse])
 def list_storage_points(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> list[StoragePointResponse]:
     points = db.scalars(
         _owned_point_query(user).order_by(StoragePoint.name, StoragePoint.id)
@@ -171,7 +170,7 @@ def list_storage_points(
 def get_storage_point(
     point_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> StoragePointResponse:
     return _serialize(_get_owned_point(db, point_id, user))
 
@@ -181,7 +180,7 @@ def update_storage_point(
     point_id: int,
     payload: StoragePointWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> StoragePointResponse:
     point = _get_owned_point(db, point_id, user)
     reject_reserved_code(payload.point_code, point.point_code)
@@ -208,7 +207,7 @@ def update_storage_point(
 def delete_storage_point(
     point_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Response:
     point = _get_owned_point(db, point_id, user)
     linked_scenario = db.scalar(

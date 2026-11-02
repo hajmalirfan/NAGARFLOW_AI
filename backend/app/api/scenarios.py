@@ -5,8 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.auth import get_current_user
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, require
 from app.core.permissions import workspace_owner_id
 from app.models import (
     Depot,
@@ -218,7 +217,7 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
 
 @router.get("/options", response_model=ScenarioOptions)
 def scenario_options(
-    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), user: User = Depends(require("records.read"))
 ) -> ScenarioOptions:
     owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == workspace_owner_id(user))
     depots = db.scalars(
@@ -308,7 +307,7 @@ def scenario_options(
 
 @router.get("", response_model=list[ScenarioResponse])
 def list_scenarios(
-    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), user: User = Depends(require("records.read"))
 ) -> list[ScenarioResponse]:
     scenarios = db.scalars(
         _scenario_query()
@@ -322,7 +321,7 @@ def list_scenarios(
 def create_scenario(
     payload: ScenarioWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> ScenarioResponse:
     scenario = Scenario(
         user_id=workspace_owner_id(user),
@@ -344,7 +343,7 @@ def create_scenario(
 def get_scenario(
     scenario_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> ScenarioResponse:
     return _serialize(_get_owned_scenario(db, scenario_id, user))
 
@@ -354,7 +353,7 @@ def update_scenario(
     scenario_id: int,
     payload: ScenarioWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> ScenarioResponse:
     scenario = _get_owned_scenario(db, scenario_id, user)
     _apply_payload(db, scenario, payload, user)
@@ -367,7 +366,7 @@ def update_scenario(
 def delete_scenario(
     scenario_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Response:
     scenario = _get_owned_scenario(db, scenario_id, user)
     active_run = db.scalar(
@@ -449,7 +448,7 @@ def build_comparison(runs: list[OptimizationRun]) -> OptimizationComparison:
 def validate_scenario_endpoint(
     scenario_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> ValidationReportResponse:
     """Check every hard constraint before the optimizer may run.
 
@@ -467,7 +466,7 @@ def validate_scenario_endpoint(
 def optimize_scenario_endpoint(
     scenario_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> OptimizationComparison:
     """Run Greedy and OR-Tools on identical inputs and compare them.
 
@@ -501,7 +500,7 @@ def optimize_scenario_endpoint(
 def latest_optimization(
     scenario_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("optimization.read")),
 ) -> OptimizationComparison:
     """The most recent comparison for this scenario."""
     _get_owned_scenario(db, scenario_id, user)
@@ -525,7 +524,7 @@ def saved_optimization(
     scenario_id: int,
     batch_id: str,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("optimization.read")),
 ) -> OptimizationComparison:
     """One saved comparison, reopened from the history."""
     _get_owned_scenario(db, scenario_id, user)
@@ -545,7 +544,7 @@ def saved_optimization(
 def list_scenario_validations(
     scenario_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> list[ScenarioValidation]:
     """Past validation runs for this scenario, newest first."""
     _get_owned_scenario(db, scenario_id, user)

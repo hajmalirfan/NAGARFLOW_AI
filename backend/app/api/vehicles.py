@@ -6,8 +6,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.auth import get_current_user
-from app.api.dependencies import get_db, reject_reserved_code
+from app.api.dependencies import get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.models import Depot, Scenario, User, Vehicle
 from app.models.scenario import scenario_vehicles
@@ -109,7 +108,7 @@ def _validate_linked_scenario_capacity(
 def create_vehicle(
     payload: VehicleWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Vehicle:
     reject_reserved_code(payload.vehicle_number)
     depot = _validate_write(db, payload, user)
@@ -139,7 +138,7 @@ def create_vehicle(
 @router.get("", response_model=list[VehicleResponse])
 def list_vehicles(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> list[Vehicle]:
     return db.scalars(
         _vehicle_query()
@@ -152,7 +151,7 @@ def list_vehicles(
 def get_vehicle(
     vehicle_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> Vehicle:
     return _get_owned_vehicle(db, vehicle_id, user)
 
@@ -162,7 +161,7 @@ def update_vehicle(
     vehicle_id: int,
     payload: VehicleWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Vehicle:
     vehicle = _get_owned_vehicle(db, vehicle_id, user)
     reject_reserved_code(payload.vehicle_number, vehicle.vehicle_number)
@@ -200,7 +199,7 @@ def update_vehicle(
 def delete_vehicle(
     vehicle_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Response:
     vehicle = _get_owned_vehicle(db, vehicle_id, user)
     linked_vehicle = db.scalar(

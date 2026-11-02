@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
-from app.api.dependencies import get_db, reject_reserved_code
+from app.api.dependencies import get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.evaluation import CATALOG_CODE_PREFIX
 from app.models import Depot, Scenario, User, Vehicle
@@ -54,7 +53,7 @@ def _validate_depot(
 def create_depot(
     payload: DepotWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Depot:
     reject_reserved_code(payload.code)
     _validate_depot(db, payload, user)
@@ -68,7 +67,7 @@ def create_depot(
 @router.get("", response_model=list[DepotResponse])
 def list_depots(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> list[Depot]:
     return db.scalars(
         select(Depot).where(Depot.user_id == workspace_owner_id(user)).order_by(Depot.name, Depot.id)
@@ -79,7 +78,7 @@ def list_depots(
 def get_depot(
     depot_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> Depot:
     return _get_owned_depot(db, depot_id, user)
 
@@ -89,7 +88,7 @@ def update_depot(
     depot_id: int,
     payload: DepotWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Depot:
     depot = _get_owned_depot(db, depot_id, user)
     reject_reserved_code(payload.code, depot.code)
@@ -113,7 +112,7 @@ def update_depot(
 def delete_depot(
     depot_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Response:
     depot = _get_owned_depot(db, depot_id, user)
     linked_scenario = db.scalar(

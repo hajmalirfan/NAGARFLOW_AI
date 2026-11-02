@@ -4,8 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.auth import get_current_user
-from app.api.dependencies import get_db, reject_reserved_code
+from app.api.dependencies import get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.models import ProcessingFacility, Scenario, User
 from app.models.scenario import scenario_facilities
@@ -117,7 +116,7 @@ def _serialize(facility: ProcessingFacility) -> FacilityResponse:
 def create_facility(
     payload: FacilityWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> FacilityResponse:
     reject_reserved_code(payload.facility_code)
     _validate_facility_code(db, payload.facility_code)
@@ -142,7 +141,7 @@ def create_facility(
 @router.get("", response_model=list[FacilityResponse])
 def list_facilities(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> list[FacilityResponse]:
     facilities = db.scalars(
         _owned_facility_query(user).order_by(
@@ -156,7 +155,7 @@ def list_facilities(
 def get_facility(
     facility_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> FacilityResponse:
     return _serialize(_get_owned_facility(db, facility_id, user))
 
@@ -165,7 +164,7 @@ def get_facility(
 def get_facility_capacity(
     facility_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.read")),
 ) -> FacilityCapacityResponse:
     """Report the shared capacity pool for this facility."""
     facility = _get_owned_facility(db, facility_id, user)
@@ -201,7 +200,7 @@ def update_facility(
     facility_id: int,
     payload: FacilityWrite,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> FacilityResponse:
     facility = _get_owned_facility(db, facility_id, user)
     reject_reserved_code(payload.facility_code, facility.facility_code)
@@ -248,7 +247,7 @@ def update_facility(
 def delete_facility(
     facility_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("records.write")),
 ) -> Response:
     facility = _get_owned_facility(db, facility_id, user)
     if _linked_scenarios(db, facility):

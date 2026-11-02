@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_current_user
-from app.api.dependencies import get_db
+from app.api.dependencies import get_db, require
 from app.api.scenarios import build_comparison
 from app.core.permissions import workspace_owner_id
 from app.models.optimization_run import OptimizationRun
@@ -21,7 +20,7 @@ def read_history(
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require("history.read")),
 ) -> HistoryPage:
     """One row per paired run, newest first, for this coordinator's scenarios."""
     batches = (
