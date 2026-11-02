@@ -48,7 +48,7 @@ def _newest_validation(db: Session, scenario: Scenario) -> ScenarioValidation | 
     )
 
 
-def _newest_batch(db: Session, scenario: Scenario) -> dict[str, OptimizationRun] | None:
+def newest_batch(db: Session, scenario: Scenario) -> dict[str, OptimizationRun] | None:
     newest = db.scalar(
         select(OptimizationRun)
         .where(OptimizationRun.scenario_id == scenario.id, OptimizationRun.batch_id.is_not(None))
@@ -61,7 +61,7 @@ def _newest_batch(db: Session, scenario: Scenario) -> dict[str, OptimizationRun]
     return {run.algorithm: run for run in runs}
 
 
-def _records(scenario: Scenario) -> list:
+def scenario_records(scenario: Scenario) -> list:
     return [
         scenario,
         _scenario_depot(scenario),
@@ -156,7 +156,7 @@ def _row(db: Session, case: dict, scenario: Scenario | None) -> dict:
         row["matches_expected"] = _matches_expected(row, case)
         return row
 
-    batch = _newest_batch(db, scenario)
+    batch = newest_batch(db, scenario)
     if batch is None:
         return row
 
@@ -165,7 +165,7 @@ def _row(db: Session, case: dict, scenario: Scenario | None) -> dict:
     difference_m, difference_pct = comparison_difference(
         greedy.total_distance_m, or_tools.total_distance_m
     )
-    changed = max(record.updated_at for record in _records(scenario))
+    changed = max(record.updated_at for record in scenario_records(scenario))
     row.update(
         state="out_of_date" if changed > greedy.created_at else "ran",
         greedy=_method(greedy, capacity),

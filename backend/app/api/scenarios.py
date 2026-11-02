@@ -20,9 +20,11 @@ from app.models import (
 from app.schemas.scenario import ScenarioOptions, ScenarioResponse, ScenarioWrite
 from app.models.optimization_run import ALGORITHM_GREEDY, ALGORITHM_OR_TOOLS
 from app.schemas.optimization import MethodRun, OptimizationComparison
+from app.schemas.preview import FacilityPreview, RoutePreview, ScenarioName
 from app.schemas.validation import ValidationHistoryEntry, ValidationReportResponse
 from app.services.optimization import comparison_difference, optimize_scenario
 from app.services.road_network import get_road_network
+from app.services.route_preview import facility_preview, preview_run, route_preview
 from app.services.validation import (
     NullRoadNetwork,
     ValidationReport,
@@ -31,6 +33,7 @@ from app.services.validation import (
 )
 
 router = APIRouter(prefix="/scenarios", tags=["scenarios"])
+NO_SAVED_ROUTE = "No saved route exists for this scenario."
 ACTIVE_OPTIMIZATION_STATUSES = {"queued", "pending", "running", "in_progress"}
 
 
@@ -213,6 +216,19 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
     scenario.processing_facility = facility
     scenario.selected_vehicles = vehicles
     scenario.selected_storage_points = points
+
+
+@router.get("/names", response_model=list[ScenarioName])
+def list_scenario_names(
+    db: Session = Depends(get_db),
+    user: User = Depends(require("scenarios.names")),
+) -> list[Scenario]:
+    """Ids and names only, for accounts that may not read whole scenarios."""
+    return list(db.scalars(
+        select(Scenario)
+        .where(Scenario.user_id == workspace_owner_id(user))
+        .order_by(Scenario.name, Scenario.id)
+    ))
 
 
 @router.get("/options", response_model=ScenarioOptions)
@@ -555,3 +571,32 @@ def list_scenario_validations(
             .order_by(ScenarioValidation.id.desc())
         ).all()
     )
+
+
+def _previewed_run(db: Session, scenario: Scenario) -> OptimizationRun:
+    run = preview_run(db, scenario)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NO_SAVED_ROUTE)
+    return run
+
+
+@router.get("/{scenario_id}/preview/routes", response_model=RoutePreview)
+def preview_routes(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require("preview.routes")),
+) -> RoutePreview:
+    """Stops, quantities and planned times from the newest run."""
+    scenario = _get_owned_scenario(db, scenario_id, user)
+    return route_preview(scenario, _previewed_run(db, scenario))
+
+
+@router.get("/{scenario_id}/preview/facility", response_model=FacilityPreview)
+def preview_facility(
+    scenario_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require("preview.facility")),
+) -> FacilityPreview:
+    """Expected load by vehicle against capacity, from the same run."""
+    scenario = _get_owned_scenario(db, scenario_id, user)
+    return facility_preview(scenario, _previewed_run(db, scenario))
