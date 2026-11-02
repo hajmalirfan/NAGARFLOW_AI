@@ -16,6 +16,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies import get_db
 from app.core.config import settings
+from app.core.rate_limit import forgot_password_limiter, login_limiter
 from app.db.base import Base
 from app.main import app
 
@@ -33,6 +34,13 @@ def no_real_road_network(monkeypatch: pytest.MonkeyPatch) -> Generator[None, Non
     reset_road_network()
     yield
     reset_road_network()
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits() -> Generator[None, None, None]:
+    login_limiter.reset()
+    forgot_password_limiter.reset()
+    yield
 
 
 @pytest.fixture

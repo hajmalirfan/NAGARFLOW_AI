@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db, require
+from app.core.rate_limit import RateLimiter, forgot_password_limiter, login_limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import (
@@ -27,6 +28,19 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 INVALID_TOKEN_MESSAGE = (
     "This password reset link is invalid or has expired. Request a new one."
 )
+
+
+def limit_keys(request: Request, email: str) -> tuple[str, str]:
+    address = request.client.host if request.client else "unknown"
+    return f"email:{email}", f"ip:{address}"
+
+
+def refuse_if_limited(limiter: RateLimiter, keys: tuple[str, str]) -> None:
+    if any(limiter.is_blocked(key) for key in keys):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts. Try again later.",
+        )
 
 
 def issue_auth_response(user: User) -> AuthResponse:
@@ -54,15 +68,23 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> AuthResponse
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(payload: UserLogin, db: Session = Depends(get_db)) -> AuthResponse:
+def login(
+    payload: UserLogin, request: Request, db: Session = Depends(get_db)
+) -> AuthResponse:
     email = str(payload.email).lower()
+    keys = limit_keys(request, email)
+    # Checked first, so a limited caller cannot learn a password is right.
+    refuse_if_limited(login_limiter, keys)
     user = db.scalar(select(User).where(User.email == email))
     if user is None or not verify_password(payload.password, user.hashed_password):
+        for key in keys:
+            login_limiter.record(key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email or password is incorrect.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    login_limiter.clear(keys[0])
     return issue_auth_response(user)
 
 
@@ -77,7 +99,7 @@ def read_current_user(user: User = Depends(require("account"))) -> User:
     status_code=status.HTTP_202_ACCEPTED,
 )
 def forgot_password(
-    payload: ForgotPasswordRequest, db: Session = Depends(get_db)
+    payload: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)
 ) -> MessageResponse:
     """Start a password reset.
 
@@ -85,6 +107,10 @@ def forgot_password(
     address has an account would turn this endpoint into a way to harvest
     registered email addresses.
     """
+    keys = limit_keys(request, str(payload.email).lower())
+    refuse_if_limited(forgot_password_limiter, keys)
+    for key in keys:
+        forgot_password_limiter.record(key)
     password_reset_service.request_password_reset(db, str(payload.email))
     return MessageResponse(
         message=(
