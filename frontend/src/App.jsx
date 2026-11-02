@@ -37,6 +37,7 @@ import {
   VehicleListPage,
 } from "./pages/VehicleManagementPage.jsx";
 import SignInPage from "./pages/SignInPage.jsx";
+import TeamPage from "./pages/TeamPage.jsx";
 
 // Sidebar destinations whose own development step has not been reached.
 const UPCOMING_PAGES = [
@@ -100,6 +101,9 @@ export default function App() {
             </Route>
             <Route element={<RequirePermission permission="scenarios.names" />}>
               <Route path="/route-preview" element={<RoutePreviewPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="team.manage" />}>
+              <Route path="/team" element={<TeamPage />} />
             </Route>
             {UPCOMING_PAGES.map((page) => (
               <Route

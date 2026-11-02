@@ -297,3 +297,37 @@ export async function downloadEvaluationCsv() {
 export async function getScenarioValidations(id) {
   return request(`/api/v1/scenarios/${id}/validations`);
 }
+
+export async function getTeam() {
+  return request("/api/v1/team");
+}
+
+export async function createTeamMember(member) {
+  return request("/api/v1/team", {
+    method: "POST",
+    body: JSON.stringify(member),
+  });
+}
+
+export async function updateTeamMemberRole(id, role) {
+  return request(`/api/v1/team/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function deleteTeamMember(id) {
+  return request(`/api/v1/team/${id}`, { method: "DELETE" });
+}
+
+export async function getScenarioNames() {
+  return request("/api/v1/scenarios/names");
+}
+
+export async function getRoutePreview(id) {
+  return request(`/api/v1/scenarios/${id}/preview/routes`);
+}
+
+export async function getFacilityPreview(id) {
+  return request(`/api/v1/scenarios/${id}/preview/facility`);
+}
