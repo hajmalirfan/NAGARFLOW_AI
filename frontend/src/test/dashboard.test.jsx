@@ -180,6 +180,17 @@ describe("protected routes", () => {
     expect(localStorage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
   });
 
+  test("management is offered no links to pages it cannot open", async () => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, "good-token");
+    api.getCurrentUser.mockResolvedValue({ ...USER, role: "management" });
+    api.getDashboardSummary.mockResolvedValue(EMPTY_SUMMARY);
+
+    renderApp("/dashboard");
+
+    await screen.findByRole("heading", { name: /good to see you, asha/i });
+    expect(within(screen.getByRole("main")).queryAllByRole("link")).toEqual([]);
+  });
+
   test("a stored token that the API accepts opens the dashboard", async () => {
     localStorage.setItem(TOKEN_STORAGE_KEY, "good-token");
     api.getCurrentUser.mockResolvedValue(USER);

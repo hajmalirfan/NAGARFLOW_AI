@@ -157,6 +157,7 @@ describe("role access", () => {
     expect(await screen.findByText("Saved plan")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Saved plan" })).not.toBeInTheDocument();
     expect(api.getScenarios).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Scenario")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 

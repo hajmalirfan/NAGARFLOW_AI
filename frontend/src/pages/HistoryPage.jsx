@@ -67,15 +67,17 @@ export function HistoryPage() {
       <PageError message={error} />
 
       <section className="panel history-filters">
-        <label className="scenario-field">
-          <span>Scenario</span>
-          <select value={scenarioId} onChange={changeFilter(setScenarioId)}>
-            <option value="">All scenarios</option>
-            {scenarios.map((scenario) => (
-              <option key={scenario.id} value={scenario.id}>{scenario.name}</option>
-            ))}
-          </select>
-        </label>
+        {canFilterByScenario && (
+          <label className="scenario-field">
+            <span>Scenario</span>
+            <select value={scenarioId} onChange={changeFilter(setScenarioId)}>
+              <option value="">All scenarios</option>
+              {scenarios.map((scenario) => (
+                <option key={scenario.id} value={scenario.id}>{scenario.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="scenario-field">
           <span>Status</span>
           <select value={status} onChange={changeFilter(setStatus)}>

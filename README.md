@@ -98,9 +98,56 @@ module, so routing, the auth guard and the dashboard are exercised for real.
 Create an account with your name, email address, and a password of at least
 8 characters. Passwords are hashed before they are stored in PostgreSQL. After
 registration or sign-in, the API issues a short-lived access token and the
-frontend opens the dashboard. Set a unique, random
-`JWT_SECRET_KEY` in `.env` before deploying; the example value is for local
-development only.
+frontend opens the dashboard. Public sign-up always creates a planner. Set a
+unique, random `JWT_SECRET_KEY` of at least 32 characters in `.env` before
+deploying; the example value is for local development only.
+
+## Roles
+
+Each planner has a separate workspace. From the Team page, a planner can add,
+change and remove linked accounts, which read that planner's data. These roles
+are proposed views from the requirements document, not municipal job titles, and
+their real authority is unconfirmed.
+
+| Role | Can read | Can change |
+| --- | --- | --- |
+| Planner | Everything in their workspace | Everything, and team accounts |
+| Reviewer | Dashboard, records, scenarios, validations, optimization, history, reports | Nothing |
+| Management | Dashboard, reports, history list | Nothing |
+| Driver preview | Scenario names, and saved routes for a run | Nothing |
+| Facility preview | Scenario names, and expected load against capacity for a run | Nothing |
+
+The server enforces this on every request and reads the role from the database
+each time, so a change applies at once. The permission table is in
+`backend/app/core/permissions.py`, and a test fails if any route has no declared
+permission. Route Preview is marked "Synthetic preview, not a dispatch
+instruction". It shows the newest run only, never an older route in place of a
+failed run, and says so if the scenario changed after that run.
+
+## Security
+
+Five failed logins in 15 minutes, or five forgot-password requests in an hour,
+per email or client address, get a 429. These counts are held in memory, so they
+are per process and reset on restart.
+
+Set `ENVIRONMENT` to anything but `development` when deploying. The server then
+refuses to start on the default, example or a short JWT secret, turns off the API
+docs and sends `Strict-Transport-Security`. If it stays unset, none of this
+applies. The tests, audits, fixes and open items are in
+[the security report](docs/security/security-report.md).
+
+## Performance
+
+`backend/scripts/perf_check.py` seeds a new SQLite file with synthetic data and
+measures a running API. Results and their limits are in
+[the performance report](docs/performance/performance-report.md). On a laptop
+with SQLite and five concurrent users, the dashboard, scenario list and history
+stayed under the assumed 500 ms p95, and the evaluation report did not, at 600 to
+683 ms. PostgreSQL has not been measured.
+
+`OPTIMIZER_MAX_CONCURRENT` (default 2) limits optimizations running at once. A
+run past the limit gets a 503 and can be tried again. There is no queue, and an
+optimization holds its request open for about 18 seconds.
 
 ## Dashboard
 

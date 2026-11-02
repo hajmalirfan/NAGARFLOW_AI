@@ -236,7 +236,7 @@ export default function DashboardPage() {
             <EmptyState
               message="No scenarios saved yet. Create one to start planning collection routes."
               actionLabel="Create a scenario"
-              actionTo="/scenarios"
+              actionTo={canRead ? "/scenarios" : undefined}
             />
           ) : (
             <ul className="row-list">
@@ -263,7 +263,7 @@ export default function DashboardPage() {
             <EmptyState
               message="No optimization has been run yet. Results appear here only after an algorithm actually runs."
               actionLabel="Open route optimization"
-              actionTo="/route-optimization"
+              actionTo={canOpenRoutes ? "/route-optimization" : undefined}
             />
           ) : (
             <>
