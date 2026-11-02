@@ -4,8 +4,17 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+DEFAULT_JWT_SECRET = "development-only-replace-before-deploy"
+# The placeholder in .env.example, long enough to pass a length check alone.
+EXAMPLE_JWT_SECRET = "replace-this-with-a-long-random-secret-before-deploy"
+MIN_JWT_SECRET_LENGTH = 32
+DEVELOPMENT = "development"
+
+
 class Settings(BaseSettings):
     app_name: str = "NagarFlow API"
+    # Anything but "development" gets the production safeguards.
+    environment: str = DEVELOPMENT
     database_url: str = (
         "postgresql+psycopg://nagarflow:change-this-local-password"
         "@127.0.0.1:5433/nagarflow"
@@ -14,7 +23,7 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
-    jwt_secret_key: str = "development-only-replace-before-deploy"
+    jwt_secret_key: str = DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
@@ -55,6 +64,25 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+
+def check_production_settings(values: Settings) -> None:
+    """Stop the server rather than run with a secret anyone could read."""
+    if values.environment == DEVELOPMENT:
+        return
+    secret = values.jwt_secret_key
+    if secret in (DEFAULT_JWT_SECRET, EXAMPLE_JWT_SECRET) or len(secret) < MIN_JWT_SECRET_LENGTH:
+        raise RuntimeError(
+            f"Set JWT_SECRET_KEY to a private value of at least {MIN_JWT_SECRET_LENGTH} "
+            f"characters before starting in the {values.environment} environment."
+        )
+
+
+def api_doc_urls(environment: str) -> dict[str, str | None]:
+    """FastAPI's documentation addresses, which only development serves."""
+    if environment == DEVELOPMENT:
+        return {"docs_url": "/docs", "redoc_url": "/redoc", "openapi_url": "/openapi.json"}
+    return {"docs_url": None, "redoc_url": None, "openapi_url": None}
 
 
 settings = Settings()

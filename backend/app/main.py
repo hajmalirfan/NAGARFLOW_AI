@@ -17,7 +17,7 @@ from app.api.scenarios import router as scenarios_router
 from app.api.storage_points import router as storage_points_router
 from app.api.team import router as team_router
 from app.api.vehicles import router as vehicles_router
-from app.core.config import settings
+from app.core.config import DEVELOPMENT, api_doc_urls, check_production_settings, settings
 from app.db.base import Base
 from app.db.migrations import (
     upgrade_legacy_depot_schema,
@@ -42,6 +42,7 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    check_production_settings(settings)
     Base.metadata.create_all(bind=engine)
     upgrade_legacy_user_schema(engine)
     upgrade_legacy_depot_schema(engine)
@@ -54,7 +55,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app = FastAPI(title=settings.app_name, lifespan=lifespan, **api_doc_urls(settings.environment))
 
 
 # Registered before CORS so it runs inside it: a browser can only read a
@@ -80,6 +81,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Registered after CORS so it runs outside everything, and even an unexpected
+# 500 carries these headers.
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if settings.environment != DEVELOPMENT:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 app.include_router(router)
 app.include_router(router, prefix=API_V1_PREFIX, include_in_schema=False)
