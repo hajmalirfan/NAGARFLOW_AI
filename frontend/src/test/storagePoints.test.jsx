@@ -106,7 +106,7 @@ vi.mock("../services/api.js", () => ({
 
 const api = await import("../services/api.js");
 const originalGeolocationDescriptor = Object.getOwnPropertyDescriptor(navigator, "geolocation");
-const account = { id: 1, name: "Asha Rao", email: "asha@example.com" };
+const account = { id: 1, name: "Asha Rao", email: "asha@example.com", role: "planner" };
 const point = {
   id: 9,
   name: "Central Market",

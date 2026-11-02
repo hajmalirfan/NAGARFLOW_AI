@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import { getDashboardSummary } from "../services/api.js";
 
@@ -55,6 +56,9 @@ function EmptyState({ message, actionLabel, actionTo }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const canRead = useCan("records.read");
+  const canWrite = useCan("records.write");
+  const canOpenRoutes = useCan("optimization.read");
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -108,9 +112,11 @@ export default function DashboardPage() {
             Waste transportation status for your municipality, read live from the database.
           </p>
         </div>
-        <Link className="primary-action" to="/scenarios">
-          New scenario<span aria-hidden="true">→</span>
-        </Link>
+        {canWrite && (
+          <Link className="primary-action" to="/scenarios">
+            New scenario<span aria-hidden="true">→</span>
+          </Link>
+        )}
       </div>
 
       {!hasAnyData && (
@@ -162,7 +168,7 @@ export default function DashboardPage() {
             <EmptyState
               message="No waste quantities recorded yet. Add storage points to a scenario to see the breakdown here."
               actionLabel="Add storage points"
-              actionTo="/storage-points"
+              actionTo={canRead ? "/storage-points" : undefined}
             />
           ) : (
             <dl className="detail-list">
@@ -179,7 +185,7 @@ export default function DashboardPage() {
             <EmptyState
               message="No vehicles registered yet. The MVP uses two vehicles, each making at most one trip."
               actionLabel="Register vehicles"
-              actionTo="/vehicles"
+              actionTo={canRead ? "/vehicles" : undefined}
             />
           ) : (
             <>
@@ -208,7 +214,7 @@ export default function DashboardPage() {
             <EmptyState
               message="No storage points registered yet. A scenario needs six to ten points."
               actionLabel="Add storage points"
-              actionTo="/storage-points"
+              actionTo={canRead ? "/storage-points" : undefined}
             />
           ) : (
             <ul className="row-list">
@@ -225,7 +231,7 @@ export default function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Recent Scenarios" action={<Link className="panel-link" to="/scenarios">View all</Link>}>
+        <Panel title="Recent Scenarios" action={canRead && <Link className="panel-link" to="/scenarios">View all</Link>}>
           {summary.recent_scenarios.length === 0 ? (
             <EmptyState
               message="No scenarios saved yet. Create one to start planning collection routes."
@@ -252,7 +258,7 @@ export default function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Optimization Summary" action={<Link className="panel-link" to="/route-optimization">Open</Link>}>
+        <Panel title="Optimization Summary" action={canOpenRoutes && <Link className="panel-link" to="/route-optimization">Open</Link>}>
           {runs.total_runs === 0 ? (
             <EmptyState
               message="No optimization has been run yet. Results appear here only after an algorithm actually runs."

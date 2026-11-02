@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import ValidationReport from "../components/ValidationReport.jsx";
 import {
   createScenario,
@@ -44,6 +45,7 @@ function ScenarioPrerequisiteNotice({ options }) {
 }
 
 export function ScenarioListPage() {
+  const canWrite = useCan("records.write");
   const [scenarios, setScenarios] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -61,7 +63,7 @@ export function ScenarioListPage() {
         kicker="SCENARIO MANAGEMENT"
         title="Scenarios"
         subtitle="Manage complete waste transportation planning situations."
-        action={<Link className="primary-action" to="/scenarios/new">＋ Create scenario</Link>}
+        action={canWrite && <Link className="primary-action" to="/scenarios/new">＋ Create scenario</Link>}
       />
       <PageError message={error} />
       {loading ? (
@@ -93,7 +95,7 @@ export function ScenarioListPage() {
         <div className="panel scenario-empty">
           <h2>No scenarios yet</h2>
           <p>Create a scenario using your configured depot, processing facility, vehicles, and storage points.</p>
-          <Link className="primary-action" to="/scenarios/new">Create your first scenario</Link>
+          {canWrite && <Link className="primary-action" to="/scenarios/new">Create your first scenario</Link>}
         </div>
       )}
     </section>
@@ -311,6 +313,7 @@ export function ScenarioFormPage() {
 }
 
 export function ScenarioDetailPage() {
+  const canWrite = useCan("records.write");
   const { scenarioId } = useParams();
   const navigate = useNavigate();
   const [scenario, setScenario] = useState(null);
@@ -368,7 +371,7 @@ export function ScenarioDetailPage() {
         kicker={`SCENARIO MANAGEMENT · ${scenario.reference}`}
         title={scenario.name}
         subtitle={scenario.description || "No description provided."}
-        action={
+        action={canWrite && (
           <div className="scenario-actions">
             <button type="button" className="primary-action" onClick={runValidation} disabled={validating}>
               {validating ? "Validating…" : "Validate Scenario"}
@@ -391,7 +394,7 @@ export function ScenarioDetailPage() {
               {deleting ? "Deleting…" : "Delete"}
             </button>
           </div>
-        }
+        )}
       />
       <PageError message={error} />
       <div className="scenario-detail-grid">

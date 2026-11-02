@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import {
   createVehicle,
   deleteVehicle,
@@ -27,6 +28,7 @@ function VehicleHeading({ title, subtitle, action }) {
 }
 
 export function VehicleListPage() {
+  const canWrite = useCan("records.write");
   const [vehicles, setVehicles] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,7 @@ export function VehicleListPage() {
       <VehicleHeading
         title="Vehicle Management"
         subtitle="Manage the two collection vehicles and their starting depot."
-        action={<Link className="primary-action" to="/vehicles/new">＋ Add vehicle</Link>}
+        action={canWrite && <Link className="primary-action" to="/vehicles/new">＋ Add vehicle</Link>}
       />
       <VehicleError message={error} />
       {loading ? (
@@ -75,7 +77,7 @@ export function VehicleListPage() {
         <div className="panel scenario-empty">
           <h2>No vehicles registered</h2>
           <p>Register the municipal vehicles using real registration, capacity, and depot information.</p>
-          <Link className="primary-action" to="/vehicles/new">Add first vehicle</Link>
+          {canWrite && <Link className="primary-action" to="/vehicles/new">Add first vehicle</Link>}
         </div>
       )}
     </section>
@@ -209,6 +211,7 @@ export function VehicleFormPage() {
 }
 
 export function VehicleDetailPage() {
+  const canWrite = useCan("records.write");
   const { vehicleId } = useParams();
   const navigate = useNavigate();
   const [vehicle, setVehicle] = useState(null);
@@ -246,14 +249,14 @@ export function VehicleDetailPage() {
       <VehicleHeading
         title={vehicle.name}
         subtitle={vehicle.vehicle_number || "Legacy vehicle record needs registration details."}
-        action={
+        action={canWrite && (
           <div className="scenario-actions">
             <Link className="secondary-action" to={`/vehicles/${vehicle.id}/edit`}>Edit vehicle</Link>
             <button type="button" className="danger-action" onClick={removeVehicle} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
             </button>
           </div>
-        }
+        )}
       />
       <VehicleError message={error} />
       <article className="panel vehicle-details">

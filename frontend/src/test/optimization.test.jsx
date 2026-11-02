@@ -83,7 +83,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
   localStorage.setItem(TOKEN_STORAGE_KEY, "token");
-  api.getCurrentUser.mockResolvedValue({ id: 1, name: "Asha Rao", email: "asha@example.com" });
+  api.getCurrentUser.mockResolvedValue({ id: 1, name: "Asha Rao", email: "asha@example.com", role: "planner" });
   api.getScenarios.mockResolvedValue([scenario]);
   api.getLatestOptimization.mockRejectedValue(Object.assign(new Error("none"), { status: 404 }));
   api.optimizeScenario.mockResolvedValue(COMPARISON);

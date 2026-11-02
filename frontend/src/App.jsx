@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext.jsx";
 import ProtectedRoute from "./auth/ProtectedRoute.jsx";
+import RequirePermission from "./auth/RequirePermission.jsx";
 import AppLayout from "./components/AppLayout.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import {
@@ -19,6 +20,7 @@ import { HistoryPage, HistoryRunPage } from "./pages/HistoryPage.jsx";
 import ReportsPage from "./pages/ReportsPage.jsx";
 import RouteOptimizationPage from "./pages/RouteOptimizationPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import RoutePreviewPage from "./pages/RoutePreviewPage.jsx";
 import {
   StoragePointDetailPage,
   StoragePointFormPage,
@@ -59,31 +61,46 @@ export default function App() {
         {/* Signed in */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/route-optimization" element={<RouteOptimizationPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/history/:scenarioId/:batchId" element={<HistoryRunPage />} />
-            <Route path="/depot" element={<DepotListPage />} />
-            <Route path="/depot/new" element={<DepotFormPage />} />
-            <Route path="/depot/:depotId/edit" element={<DepotFormPage />} />
-            <Route path="/depot/:depotId" element={<DepotDetailPage />} />
-            <Route path="/scenarios" element={<ScenarioListPage />} />
-            <Route path="/scenarios/new" element={<ScenarioFormPage />} />
-            <Route path="/scenarios/:scenarioId/edit" element={<ScenarioFormPage />} />
-            <Route path="/scenarios/:scenarioId" element={<ScenarioDetailPage />} />
-            <Route path="/vehicles" element={<VehicleListPage />} />
-            <Route path="/vehicles/new" element={<VehicleFormPage />} />
-            <Route path="/vehicles/:vehicleId/edit" element={<VehicleFormPage />} />
-            <Route path="/vehicles/:vehicleId" element={<VehicleDetailPage />} />
-            <Route path="/facility" element={<FacilityListPage />} />
-            <Route path="/facility/new" element={<FacilityFormPage />} />
-            <Route path="/facility/:facilityId/edit" element={<FacilityFormPage />} />
-            <Route path="/facility/:facilityId" element={<FacilityDetailPage />} />
-            <Route path="/storage-points" element={<StoragePointListPage />} />
-            <Route path="/storage-points/new" element={<StoragePointFormPage />} />
-            <Route path="/storage-points/:pointId/edit" element={<StoragePointFormPage />} />
-            <Route path="/storage-points/:pointId" element={<StoragePointDetailPage />} />
+            <Route element={<RequirePermission permission="dashboard.read" />}>
+              <Route path="/dashboard" element={<DashboardPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="optimization.read" />}>
+              <Route path="/route-optimization" element={<RouteOptimizationPage />} />
+              <Route path="/history/:scenarioId/:batchId" element={<HistoryRunPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="reports.read" />}>
+              <Route path="/reports" element={<ReportsPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="history.read" />}>
+              <Route path="/history" element={<HistoryPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="records.read" />}>
+              <Route path="/depot" element={<DepotListPage />} />
+              <Route path="/depot/:depotId" element={<DepotDetailPage />} />
+              <Route path="/scenarios" element={<ScenarioListPage />} />
+              <Route path="/scenarios/:scenarioId" element={<ScenarioDetailPage />} />
+              <Route path="/vehicles" element={<VehicleListPage />} />
+              <Route path="/vehicles/:vehicleId" element={<VehicleDetailPage />} />
+              <Route path="/facility" element={<FacilityListPage />} />
+              <Route path="/facility/:facilityId" element={<FacilityDetailPage />} />
+              <Route path="/storage-points" element={<StoragePointListPage />} />
+              <Route path="/storage-points/:pointId" element={<StoragePointDetailPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="records.write" />}>
+              <Route path="/depot/new" element={<DepotFormPage />} />
+              <Route path="/depot/:depotId/edit" element={<DepotFormPage />} />
+              <Route path="/scenarios/new" element={<ScenarioFormPage />} />
+              <Route path="/scenarios/:scenarioId/edit" element={<ScenarioFormPage />} />
+              <Route path="/vehicles/new" element={<VehicleFormPage />} />
+              <Route path="/vehicles/:vehicleId/edit" element={<VehicleFormPage />} />
+              <Route path="/facility/new" element={<FacilityFormPage />} />
+              <Route path="/facility/:facilityId/edit" element={<FacilityFormPage />} />
+              <Route path="/storage-points/new" element={<StoragePointFormPage />} />
+              <Route path="/storage-points/:pointId/edit" element={<StoragePointFormPage />} />
+            </Route>
+            <Route element={<RequirePermission permission="scenarios.names" />}>
+              <Route path="/route-preview" element={<RoutePreviewPage />} />
+            </Route>
             {UPCOMING_PAGES.map((page) => (
               <Route
                 key={page.path}

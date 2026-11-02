@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import StoragePointMap from "../components/StoragePointMap.jsx";
 import {
   createStoragePoint,
@@ -63,6 +64,7 @@ function StoragePointFilters({ search, setSearch, availability, setAvailability 
 }
 
 export function StoragePointListPage() {
+  const canWrite = useCan("records.write");
   const [points, setPoints] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ export function StoragePointListPage() {
       <StoragePointHeading
         title="Storage Point Management"
         subtitle="Manage real collection locations, recorded waste quantities, and availability."
-        action={<Link className="primary-action" to="/storage-points/new">＋ Add storage point</Link>}
+        action={canWrite && <Link className="primary-action" to="/storage-points/new">＋ Add storage point</Link>}
       />
       <StoragePointError message={error} />
       <StoragePointMap points={filteredPoints} />
@@ -140,7 +142,7 @@ export function StoragePointListPage() {
               ? "Try a different search or availability filter."
               : "Register actual collection points. No sample locations or waste values are created."}
           </p>
-          {!points.length && <Link className="primary-action" to="/storage-points/new">Add your first point</Link>}
+          {canWrite && !points.length && <Link className="primary-action" to="/storage-points/new">Add your first point</Link>}
         </div>
       )}
       {!loading && points.length > 0 && (
@@ -329,6 +331,7 @@ export function StoragePointFormPage() {
 }
 
 export function StoragePointDetailPage() {
+  const canWrite = useCan("records.write");
   const { pointId } = useParams();
   const navigate = useNavigate();
   const [point, setPoint] = useState(null);
@@ -371,14 +374,14 @@ export function StoragePointDetailPage() {
       <StoragePointHeading
         title={point.name}
         subtitle={point.point_code}
-        action={
+        action={canWrite && (
           <div className="scenario-actions">
             <Link className="secondary-action" to={`/storage-points/${point.id}/edit`}>Edit point</Link>
             <button type="button" className="danger-action" onClick={removePoint} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
             </button>
           </div>
-        }
+        )}
       />
       <StoragePointError message={error} />
       <article className="panel storage-point-details">

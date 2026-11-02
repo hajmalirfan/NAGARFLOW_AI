@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import FacilityMap from "../components/FacilityMap.jsx";
 import {
   createFacility,
@@ -105,6 +106,7 @@ function CapacityMonitor({ capacity }) {
 }
 
 export function FacilityListPage() {
+  const canWrite = useCan("records.write");
   const [facilities, setFacilities] = useState([]);
   const [capacityById, setCapacityById] = useState({});
   const [error, setError] = useState("");
@@ -169,11 +171,11 @@ export function FacilityListPage() {
       <FacilityHeading
         title="Processing Facility Management"
         subtitle="Where both collection vehicles deliver their waste. Capacity is one shared limit."
-        action={
+        action={canWrite && (
           <Link className="primary-action" to="/facility/new">
             Add facility<span aria-hidden="true">→</span>
           </Link>
-        }
+        )}
       />
       <FacilityError message={error} />
 
@@ -460,6 +462,7 @@ export function FacilityFormPage() {
 }
 
 export function FacilityDetailPage() {
+  const canWrite = useCan("records.write");
   const { facilityId } = useParams();
   const navigate = useNavigate();
   const [facility, setFacility] = useState(null);
@@ -546,7 +549,7 @@ export function FacilityDetailPage() {
       <FacilityHeading
         title={facility.name}
         subtitle={`${facility.facility_code} · ${facility.address || "Address not recorded"}`}
-        action={
+        action={canWrite && (
           <div className="facility-detail-actions">
             <Link className="primary-action" to={`/facility/${facility.id}/edit`}>
               Edit facility
@@ -558,7 +561,7 @@ export function FacilityDetailPage() {
               Delete
             </button>
           </div>
-        }
+        )}
       />
       <FacilityError message={error} />
 

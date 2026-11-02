@@ -42,7 +42,7 @@ vi.mock("../services/api.js", () => ({
 
 const api = await import("../services/api.js");
 
-const USER = { id: 1, name: "Asha Rao", email: "asha@example.com" };
+const USER = { id: 1, name: "Asha Rao", email: "asha@example.com", role: "planner" };
 
 const EMPTY_SUMMARY = {
   total_waste_kg: 0,

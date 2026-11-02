@@ -38,7 +38,7 @@ vi.mock("../services/api.js", () => ({
 }));
 
 const api = await import("../services/api.js");
-const user = { id: 1, name: "Asha Rao", email: "asha@example.com" };
+const user = { id: 1, name: "Asha Rao", email: "asha@example.com", role: "planner" };
 const configuredOptions = {
   depots: [{ id: 1, name: "North depot" }],
   facilities: [{ id: 2, name: "Central facility", capacity_kg: 9000 }],

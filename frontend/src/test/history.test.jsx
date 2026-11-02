@@ -69,7 +69,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
   localStorage.setItem(TOKEN_STORAGE_KEY, "token");
-  api.getCurrentUser.mockResolvedValue({ id: 1, name: "Asha Rao", email: "asha@example.com" });
+  api.getCurrentUser.mockResolvedValue({ id: 1, name: "Asha Rao", email: "asha@example.com", role: "planner" });
   api.getScenarios.mockResolvedValue([{ id: 4, name: "Weekly collection" }]);
   api.getOptimizationHistory.mockResolvedValue({ items: [ROW, FAILED_ROW], total: 2 });
   api.getOptimizationBatch.mockResolvedValue(COMPARISON);

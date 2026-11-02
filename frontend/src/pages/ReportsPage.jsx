@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useCan } from "../auth/permissions.js";
 import { STATUS_TEXT, formatKm } from "../components/ComparisonView.jsx";
 import {
   downloadEvaluationCsv,
@@ -76,6 +77,7 @@ function SourceNote({ rows }) {
 }
 
 export default function ReportsPage() {
+  const canWrite = useCan("records.write");
   const [report, setReport] = useState(null);
   const [progress, setProgress] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,22 +132,26 @@ export default function ReportsPage() {
       <PageError message={errors.join(" ")} />
 
       <section className="panel report-actions">
-        <button
-          type="button"
-          className="secondary-action"
-          disabled={busy}
-          onClick={() => act(loadEvaluationScenarios)}
-        >
-          Load evaluation scenarios
-        </button>
-        <button
-          type="button"
-          className="primary-action"
-          disabled={busy || !report}
-          onClick={() => act(runCases)}
-        >
-          Run all
-        </button>
+        {canWrite && (
+          <>
+            <button
+              type="button"
+              className="secondary-action"
+              disabled={busy}
+              onClick={() => act(loadEvaluationScenarios)}
+            >
+              Load evaluation scenarios
+            </button>
+            <button
+              type="button"
+              className="primary-action"
+              disabled={busy || !report}
+              onClick={() => act(runCases)}
+            >
+              Run all
+            </button>
+          </>
+        )}
         <button
           type="button"
           className="secondary-action"

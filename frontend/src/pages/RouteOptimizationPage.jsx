@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import ComparisonView from "../components/ComparisonView.jsx";
 import ValidationReport from "../components/ValidationReport.jsx";
 import { getLatestOptimization, getScenarios, optimizeScenario } from "../services/api.js";
 import { PageError, PageHeading } from "./ScenarioManagementPage.jsx";
 
 export default function RouteOptimizationPage() {
+  const canWrite = useCan("records.write");
   const [searchParams, setSearchParams] = useSearchParams();
   const scenarioId = searchParams.get("scenario") ?? "";
   const [scenarios, setScenarios] = useState([]);
@@ -79,14 +81,16 @@ export default function RouteOptimizationPage() {
             ))}
           </select>
         </label>
-        <button
-          type="button"
-          className="primary-action"
-          onClick={run}
-          disabled={!scenarioId || running}
-        >
-          {running ? "Running both algorithms…" : "Run optimization"}
-        </button>
+        {canWrite && (
+          <button
+            type="button"
+            className="primary-action"
+            onClick={run}
+            disabled={!scenarioId || running}
+          >
+            {running ? "Running both algorithms…" : "Run optimization"}
+          </button>
+        )}
       </section>
 
       {blockedReport && (

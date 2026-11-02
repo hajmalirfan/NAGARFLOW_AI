@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import { createDepot, deleteDepot, getDepot, getDepots, updateDepot } from "../services/api.js";
 
 function DepotError({ message }) {
@@ -20,6 +21,7 @@ function DepotHeading({ title, subtitle, action }) {
 }
 
 export function DepotListPage() {
+  const canWrite = useCan("records.write");
   const [depots, setDepots] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export function DepotListPage() {
       <DepotHeading
         title="Depot Management"
         subtitle="Manage the municipal starting depot used by waste collection vehicles."
-        action={<Link className="primary-action" to="/depot/new">＋ Add depot</Link>}
+        action={canWrite && <Link className="primary-action" to="/depot/new">＋ Add depot</Link>}
       />
       <DepotError message={error} />
       {loading ? (
@@ -67,7 +69,7 @@ export function DepotListPage() {
         <div className="panel scenario-empty">
           <h2>No depots registered</h2>
           <p>Add the real municipal depot details. No sample locations are created.</p>
-          <Link className="primary-action" to="/depot/new">Add your depot</Link>
+          {canWrite && <Link className="primary-action" to="/depot/new">Add your depot</Link>}
         </div>
       )}
     </section>
@@ -237,6 +239,7 @@ export function DepotFormPage() {
 }
 
 export function DepotDetailPage() {
+  const canWrite = useCan("records.write");
   const { depotId } = useParams();
   const navigate = useNavigate();
   const [depot, setDepot] = useState(null);
@@ -274,14 +277,14 @@ export function DepotDetailPage() {
       <DepotHeading
         title={depot.name}
         subtitle={depot.code || "Legacy depot record needs a code and coordinates."}
-        action={
+        action={canWrite && (
           <div className="scenario-actions">
             <Link className="secondary-action" to={`/depot/${depot.id}/edit`}>Edit depot</Link>
             <button type="button" className="danger-action" onClick={removeDepot} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
             </button>
           </div>
-        }
+        )}
       />
       <DepotError message={error} />
       <article className="panel depot-details">

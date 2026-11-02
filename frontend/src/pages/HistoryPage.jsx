@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useCan } from "../auth/permissions.js";
 import ComparisonView, {
   STATUS_TEXT,
   formatKm,
@@ -19,6 +20,8 @@ function distanceOrStatus(status, distance) {
 }
 
 export function HistoryPage() {
+  const canFilterByScenario = useCan("records.read");
+  const canOpenRun = useCan("optimization.read");
   const [scenarios, setScenarios] = useState([]);
   const [scenarioId, setScenarioId] = useState("");
   const [status, setStatus] = useState("");
@@ -27,8 +30,9 @@ export function HistoryPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!canFilterByScenario) return;
     getScenarios().then(setScenarios).catch((failure) => setError(failure.message));
-  }, []);
+  }, [canFilterByScenario]);
 
   useEffect(() => {
     let current = true;
@@ -102,9 +106,11 @@ export function HistoryPage() {
                 <tr key={row.batch_id}>
                   <td>{formatRunDate(row.created_at)}</td>
                   <td>
-                    <Link to={`/history/${row.scenario_id}/${row.batch_id}`}>
-                      {row.scenario_name}
-                    </Link>
+                    {canOpenRun ? (
+                      <Link to={`/history/${row.scenario_id}/${row.batch_id}`}>
+                        {row.scenario_name}
+                      </Link>
+                    ) : row.scenario_name}
                   </td>
                   <td>{distanceOrStatus(row.greedy_status, row.greedy_distance_m)}</td>
                   <td>{distanceOrStatus(row.or_tools_status, row.or_tools_distance_m)}</td>

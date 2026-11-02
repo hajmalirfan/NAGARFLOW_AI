@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import { can, ROLE_LABELS } from "../auth/permissions.js";
 import { BrandMark } from "./common.jsx";
 import ErrorBoundary from "./ErrorBoundary.jsx";
 
 const NAV_ITEMS = [
-  { to: "/dashboard", label: "Dashboard", icon: "grid" },
-  { to: "/scenarios", label: "Scenarios", icon: "layers" },
-  { to: "/depot", label: "Depot Management", icon: "home" },
-  { to: "/vehicles", label: "Vehicles", icon: "truck" },
-  { to: "/storage-points", label: "Storage Points", icon: "pin" },
-  { to: "/facility", label: "Processing Facility", icon: "factory" },
-  { to: "/route-optimization", label: "Route Optimization", icon: "route" },
-  { to: "/history", label: "History", icon: "clock" },
-  { to: "/reports", label: "Reports", icon: "chart" },
+  { to: "/dashboard", label: "Dashboard", icon: "grid", permission: "dashboard.read" },
+  { to: "/scenarios", label: "Scenarios", icon: "layers", permission: "records.read" },
+  { to: "/depot", label: "Depot Management", icon: "home", permission: "records.read" },
+  { to: "/vehicles", label: "Vehicles", icon: "truck", permission: "records.read" },
+  { to: "/storage-points", label: "Storage Points", icon: "pin", permission: "records.read" },
+  { to: "/facility", label: "Processing Facility", icon: "factory", permission: "records.read" },
+  { to: "/route-optimization", label: "Route Optimization", icon: "route", permission: "optimization.read" },
+  { to: "/route-preview", label: "Route Preview", icon: "route", permission: "scenarios.names" },
+  { to: "/history", label: "History", icon: "clock", permission: "history.read" },
+  { to: "/reports", label: "Reports", icon: "chart", permission: "reports.read" },
+  { to: "/team", label: "Team", icon: "layers", permission: "team.manage" },
   { to: "/settings", label: "Settings", icon: "cog" },
 ];
 
@@ -44,14 +47,14 @@ function NavIcon({ name }) {
   );
 }
 
-function Sidebar({ isOpen, onNavigate, onSignOut }) {
+function Sidebar({ user, isOpen, onNavigate, onSignOut }) {
   return (
     <aside className={`sidebar${isOpen ? " sidebar-open" : ""}`} id="main-sidebar">
       <div className="sidebar-brand">
         <BrandMark />
       </div>
       <nav className="sidebar-nav" aria-label="Main navigation">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => !item.permission || can(user, item.permission)).map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -128,7 +131,7 @@ function TopNav({ user, onToggleSidebar, isSidebarOpen, onSignOut }) {
             <span className="profile-avatar">{initial}</span>
             <span className="profile-text">
               <strong>{user.name}</strong>
-              <small>Municipal coordinator</small>
+              <small>{ROLE_LABELS[user.role]}</small>
             </span>
             <svg className="profile-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -168,6 +171,7 @@ export default function AppLayout() {
   return (
     <div className="app-shell">
       <Sidebar
+        user={user}
         isOpen={isSidebarOpen}
         onNavigate={() => setIsSidebarOpen(false)}
         onSignOut={handleSignOut}
