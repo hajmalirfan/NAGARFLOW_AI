@@ -25,6 +25,7 @@ from app.db.migrations import (
     upgrade_legacy_optimization_run_schema,
     upgrade_legacy_scenario_schema,
     upgrade_legacy_storage_point_schema,
+    upgrade_legacy_user_schema,
     upgrade_legacy_vehicle_schema,
 )
 from app.db.session import engine
@@ -41,6 +42,7 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+    upgrade_legacy_user_schema(engine)
     upgrade_legacy_depot_schema(engine)
     upgrade_legacy_vehicle_schema(engine)
     upgrade_legacy_storage_point_schema(engine)

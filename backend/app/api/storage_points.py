@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
 from app.api.dependencies import get_db, reject_reserved_code
+from app.core.permissions import workspace_owner_id
 from app.models import Scenario, StoragePoint, User
 from app.models.scenario import scenario_storage_points
 from app.schemas.storage_point import StoragePointResponse, StoragePointWrite
@@ -14,10 +15,10 @@ router = APIRouter(prefix="/storage-points", tags=["storage points"])
 
 
 def _owned_point_query(user: User) -> Select[tuple[StoragePoint]]:
-    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == user.id)
+    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == workspace_owner_id(user))
     return select(StoragePoint).where(
         or_(
-            StoragePoint.user_id == user.id,
+            StoragePoint.user_id == workspace_owner_id(user),
             and_(
                 StoragePoint.user_id.is_(None),
                 StoragePoint.scenario_id.in_(owned_scenario_ids),
@@ -138,7 +139,7 @@ def create_storage_point(
     _validate_point_code(db, payload.point_code)
     values = payload.model_dump()
     point = StoragePoint(
-        user_id=user.id,
+        user_id=workspace_owner_id(user),
         name=values["name"],
         point_code=values["point_code"],
         address=values["address"] or None,
@@ -215,7 +216,7 @@ def delete_storage_point(
         .join(Scenario, Scenario.id == scenario_storage_points.c.scenario_id)
         .where(
             scenario_storage_points.c.storage_point_id == point.id,
-            Scenario.user_id == user.id,
+            Scenario.user_id == workspace_owner_id(user),
         )
     )
     legacy_scenario = (
@@ -223,7 +224,7 @@ def delete_storage_point(
         if point.scenario_id is not None
         and db.scalar(
             select(Scenario.id).where(
-                Scenario.id == point.scenario_id, Scenario.user_id == user.id
+                Scenario.id == point.scenario_id, Scenario.user_id == workspace_owner_id(user)
             )
         )
         is not None

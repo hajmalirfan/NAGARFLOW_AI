@@ -12,6 +12,7 @@ import io
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.permissions import workspace_owner_id
 from app.evaluation.catalog_loader import CATALOG_VERSION, _moment, read_catalog
 from app.models.optimization_run import (
     ALGORITHM_GREEDY,
@@ -205,7 +206,7 @@ def build_report(db: Session, user: User) -> dict:
         scenario.evaluation_code: scenario
         for scenario in db.scalars(
             select(Scenario).where(
-                Scenario.user_id == user.id, Scenario.evaluation_code.is_not(None)
+                Scenario.user_id == workspace_owner_id(user), Scenario.evaluation_code.is_not(None)
             )
         )
     }

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth import get_current_user
 from app.api.dependencies import get_db, reject_reserved_code
+from app.core.permissions import workspace_owner_id
 from app.evaluation import CATALOG_CODE_PREFIX
 from app.models import Depot, Scenario, User, Vehicle
 from app.models.scenario import scenario_depots
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/depots", tags=["depots"])
 
 def _get_owned_depot(db: Session, depot_id: int, user: User) -> Depot:
     depot = db.scalar(
-        select(Depot).where(Depot.id == depot_id, Depot.user_id == user.id)
+        select(Depot).where(Depot.id == depot_id, Depot.user_id == workspace_owner_id(user))
     )
     if depot is None:
         raise HTTPException(status_code=404, detail="Depot not found.")
@@ -36,7 +37,7 @@ def _validate_depot(
     if payload.is_active:
         active_depot = db.scalar(
             select(Depot.id).where(
-                Depot.user_id == user.id,
+                Depot.user_id == workspace_owner_id(user),
                 Depot.is_active.is_(True),
                 Depot.code.not_like(f"{CATALOG_CODE_PREFIX}%"),
                 Depot.id != depot_id if depot_id is not None else True,
@@ -57,7 +58,7 @@ def create_depot(
 ) -> Depot:
     reject_reserved_code(payload.code)
     _validate_depot(db, payload, user)
-    depot = Depot(user_id=user.id, **payload.model_dump())
+    depot = Depot(user_id=workspace_owner_id(user), **payload.model_dump())
     db.add(depot)
     db.commit()
     db.refresh(depot)
@@ -70,7 +71,7 @@ def list_depots(
     user: User = Depends(get_current_user),
 ) -> list[Depot]:
     return db.scalars(
-        select(Depot).where(Depot.user_id == user.id).order_by(Depot.name, Depot.id)
+        select(Depot).where(Depot.user_id == workspace_owner_id(user)).order_by(Depot.name, Depot.id)
     ).all()
 
 
@@ -120,7 +121,7 @@ def delete_depot(
         .join(scenario_depots, scenario_depots.c.scenario_id == Scenario.id)
         .where(
             scenario_depots.c.depot_id == depot.id,
-            Scenario.user_id == user.id,
+            Scenario.user_id == workspace_owner_id(user),
         )
     )
     if linked_scenario is not None:

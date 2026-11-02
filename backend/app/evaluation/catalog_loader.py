@@ -16,6 +16,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.permissions import workspace_owner_id
 from app.evaluation import CATALOG_CODE_PREFIX
 from app.models.depot import Depot
 from app.models.processing_facility import ProcessingFacility
@@ -59,11 +60,11 @@ def _reuse_or_add(
 
 
 def _create_case(db: Session, user: User, case: dict) -> Scenario:
-    prefix = f"{CATALOG_CODE_PREFIX}{user.id}-{case['code']}"
+    prefix = f"{CATALOG_CODE_PREFIX}{workspace_owner_id(user)}-{case['code']}"
     label = f"SYNTH-{case['code']}"
     shift = case["shift"] or {}
     scenario = Scenario(
-        user_id=user.id,
+        user_id=workspace_owner_id(user),
         reference=f"SC-{uuid4().hex[:12].upper()}",
         name=f"{label} {case['name']}",
         description=f"Synthetic evaluation case. {case['purpose']}",
@@ -76,11 +77,11 @@ def _create_case(db: Session, user: User, case: dict) -> Scenario:
     db.flush()
 
     depot = _reuse_or_add(
-        db, Depot, "code", f"{prefix}-D", user.id, name=f"{label} Depot",
+        db, Depot, "code", f"{prefix}-D", workspace_owner_id(user), name=f"{label} Depot",
         latitude=case["depot"]["latitude"], longitude=case["depot"]["longitude"],
     )
     facility = _reuse_or_add(
-        db, ProcessingFacility, "facility_code", f"{prefix}-F", user.id,
+        db, ProcessingFacility, "facility_code", f"{prefix}-F", workspace_owner_id(user),
         name=f"{label} Facility", latitude=case["facility"]["latitude"],
         longitude=case["facility"]["longitude"],
         capacity_kg=Decimal(str(case["facility"]["capacity_kg"])), status="active",
@@ -92,7 +93,7 @@ def _create_case(db: Session, user: User, case: dict) -> Scenario:
 
     scenario.selected_vehicles = [
         _reuse_or_add(
-            db, Vehicle, "vehicle_number", f"{prefix}-V{index}", user.id,
+            db, Vehicle, "vehicle_number", f"{prefix}-V{index}", workspace_owner_id(user),
             name=f"{label} Vehicle {index}", vehicle_type="Truck",
             capacity_kg=Decimal(str(capacity)), depot_id=depot.id, status="available",
             is_available=True, start_latitude=depot.latitude, start_longitude=depot.longitude,
@@ -101,7 +102,7 @@ def _create_case(db: Session, user: User, case: dict) -> Scenario:
     ]
     scenario.selected_storage_points = [
         _reuse_or_add(
-            db, StoragePoint, "point_code", f"{prefix}-P{index:02d}", user.id,
+            db, StoragePoint, "point_code", f"{prefix}-P{index:02d}", workspace_owner_id(user),
             name=f"{label} Point {index}", latitude=point["latitude"],
             longitude=point["longitude"], waste_kg=Decimal(str(point["waste_kg"])),
             availability_status="available", available_from=_moment(point["available_from"]),
@@ -117,7 +118,7 @@ def load_catalog(db: Session, user: User) -> list[Scenario]:
         scenario.evaluation_code: scenario
         for scenario in db.scalars(
             select(Scenario).where(
-                Scenario.user_id == user.id, Scenario.evaluation_code.is_not(None)
+                Scenario.user_id == workspace_owner_id(user), Scenario.evaluation_code.is_not(None)
             )
         )
     }

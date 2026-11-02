@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
 from app.api.dependencies import get_db, reject_reserved_code
+from app.core.permissions import workspace_owner_id
 from app.models import Depot, Scenario, User, Vehicle
 from app.models.scenario import scenario_vehicles
 from app.schemas.vehicle import VehicleResponse, VehicleWrite
@@ -16,12 +17,12 @@ router = APIRouter(prefix="/vehicles", tags=["vehicles"])
 
 
 def _owned_scenario_ids(user: User) -> Select[tuple[int]]:
-    return select(Scenario.id).where(Scenario.user_id == user.id)
+    return select(Scenario.id).where(Scenario.user_id == workspace_owner_id(user))
 
 
 def _owned_vehicle_condition(user: User) -> ColumnElement[bool]:
     return or_(
-        Vehicle.user_id == user.id,
+        Vehicle.user_id == workspace_owner_id(user),
         Vehicle.scenario_id.in_(_owned_scenario_ids(user)),
     )
 
@@ -46,7 +47,7 @@ def _get_owned_depot(db: Session, depot_id: int, user: User) -> Depot:
     depot = db.scalar(
         select(Depot).where(
             Depot.id == depot_id,
-            Depot.user_id == user.id,
+            Depot.user_id == workspace_owner_id(user),
             Depot.is_active.is_(True),
             Depot.latitude.is_not(None),
             Depot.longitude.is_not(None),
@@ -113,7 +114,7 @@ def create_vehicle(
     reject_reserved_code(payload.vehicle_number)
     depot = _validate_write(db, payload, user)
     vehicle = Vehicle(
-        user_id=user.id,
+        user_id=workspace_owner_id(user),
         scenario_id=None,
         vehicle_number=payload.vehicle_number,
         name=payload.name,

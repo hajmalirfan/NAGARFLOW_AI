@@ -1,6 +1,28 @@
 from sqlalchemy import Engine, Float, Numeric, inspect, text
 
 
+def upgrade_legacy_user_schema(engine: Engine) -> None:
+    """Make every existing account a planner."""
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("users")}
+    indexes = {index["name"] for index in inspector.get_indexes("users")}
+    with engine.begin() as connection:
+        if "role" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'planner'"
+            )
+        if "planner_id" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE users ADD COLUMN planner_id INTEGER "
+                "REFERENCES users(id) ON DELETE CASCADE"
+            )
+        if "ix_users_planner_id" not in indexes:
+            connection.exec_driver_sql("CREATE INDEX ix_users_planner_id ON users (planner_id)")
+
+
 def upgrade_legacy_depot_schema(engine: Engine) -> None:
     """Add Step 6 fields to depots created by the earlier scenario model."""
     inspector = inspect(engine)

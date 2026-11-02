@@ -9,6 +9,7 @@ zero, and the facility card reports that it is not configured.
 from sqlalchemy import ColumnElement, Select, and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.permissions import workspace_owner_id
 from app.evaluation import CATALOG_CODE_PREFIX
 from app.models.scenario import scenario_storage_points, scenario_vehicles
 from app.models.optimization_run import (
@@ -44,7 +45,7 @@ def _owned_scenarios(user: User) -> Select[tuple[int]]:
 
 def _real_scenarios(user: User) -> ColumnElement[bool]:
     """This user's scenarios, leaving out the synthetic evaluation cases."""
-    return and_(Scenario.user_id == user.id, Scenario.evaluation_code.is_(None))
+    return and_(Scenario.user_id == workspace_owner_id(user), Scenario.evaluation_code.is_(None))
 
 
 def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
@@ -60,7 +61,7 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
         select(StoragePoint)
         .where(
             or_(
-                StoragePoint.user_id == user.id,
+                StoragePoint.user_id == workspace_owner_id(user),
                 and_(
                     StoragePoint.user_id.is_(None),
                     StoragePoint.scenario_id.in_(scenario_ids),
@@ -90,7 +91,7 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
     facilities = db.scalars(
         select(ProcessingFacility).where(
             or_(
-                ProcessingFacility.user_id == user.id,
+                ProcessingFacility.user_id == workspace_owner_id(user),
                 and_(
                     ProcessingFacility.user_id.is_(None),
                     ProcessingFacility.scenario_id.in_(scenario_ids),
@@ -110,7 +111,7 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
         for reference, vehicle_id in db.execute(
             select(Scenario.reference, scenario_vehicles.c.vehicle_id)
             .join(Scenario, Scenario.id == scenario_vehicles.c.scenario_id)
-            .where(Scenario.user_id == user.id)
+            .where(Scenario.user_id == workspace_owner_id(user))
         ).all()
     }
     selected_storage_point_references = {
@@ -118,7 +119,7 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
         for reference, point_id in db.execute(
             select(Scenario.reference, scenario_storage_points.c.storage_point_id)
             .join(Scenario, Scenario.id == scenario_storage_points.c.scenario_id)
-            .where(Scenario.user_id == user.id)
+            .where(Scenario.user_id == workspace_owner_id(user))
         ).all()
     }
 

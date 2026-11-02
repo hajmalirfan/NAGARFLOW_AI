@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_current_user
 from app.api.dependencies import get_db
 from app.api.scenarios import build_comparison
+from app.core.permissions import workspace_owner_id
 from app.models.optimization_run import OptimizationRun
 from app.models.scenario import Scenario
 from app.models.user import User
@@ -26,7 +27,7 @@ def read_history(
     batches = (
         select(OptimizationRun.batch_id, func.max(OptimizationRun.id).label("newest"))
         .join(Scenario, OptimizationRun.scenario_id == Scenario.id)
-        .where(Scenario.user_id == user.id, OptimizationRun.batch_id.is_not(None))
+        .where(Scenario.user_id == workspace_owner_id(user), OptimizationRun.batch_id.is_not(None))
         .group_by(OptimizationRun.batch_id)
     )
     if scenario_id is not None:

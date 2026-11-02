@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
 from app.api.dependencies import get_db, reject_reserved_code
+from app.core.permissions import workspace_owner_id
 from app.models import ProcessingFacility, Scenario, User
 from app.models.scenario import scenario_facilities
 from app.schemas.facility import (
@@ -24,10 +25,10 @@ def _owned_facility_query(user: User) -> Select[tuple[ProcessingFacility]]:
     Covers both the current user-owned records and legacy rows that were
     created under the earlier scenario-owned schema.
     """
-    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == user.id)
+    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == workspace_owner_id(user))
     return select(ProcessingFacility).where(
         or_(
-            ProcessingFacility.user_id == user.id,
+            ProcessingFacility.user_id == workspace_owner_id(user),
             and_(
                 ProcessingFacility.user_id.is_(None),
                 ProcessingFacility.scenario_id.in_(owned_scenario_ids),
@@ -122,7 +123,7 @@ def create_facility(
     _validate_facility_code(db, payload.facility_code)
     values = payload.model_dump()
     facility = ProcessingFacility(
-        user_id=user.id,
+        user_id=workspace_owner_id(user),
         name=values["name"],
         facility_code=values["facility_code"],
         address=values["address"] or None,

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
 from app.api.dependencies import get_db
+from app.core.permissions import workspace_owner_id
 from app.models import (
     Depot,
     OptimizationRun,
@@ -45,7 +46,7 @@ def _scenario_query() -> Select[tuple[Scenario]]:
 
 def _get_owned_scenario(db: Session, scenario_id: int, user: User) -> Scenario:
     scenario = db.scalar(
-        _scenario_query().where(Scenario.id == scenario_id, Scenario.user_id == user.id)
+        _scenario_query().where(Scenario.id == scenario_id, Scenario.user_id == workspace_owner_id(user))
     )
     if scenario is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenario not found.")
@@ -99,16 +100,16 @@ def _serialize(scenario: Scenario) -> ScenarioResponse:
 def _validated_resources(
     db: Session, payload: ScenarioWrite, user: User
 ) -> tuple[Depot, ProcessingFacility, list[Vehicle], list[StoragePoint]]:
-    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == user.id)
+    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == workspace_owner_id(user))
     depot = db.get(Depot, payload.depot_id)
-    if depot is None or depot.user_id != user.id or not depot.is_active:
+    if depot is None or depot.user_id != workspace_owner_id(user) or not depot.is_active:
         raise HTTPException(status_code=422, detail="Select an active depot from your configured records.")
 
     facility = db.scalar(
         select(ProcessingFacility).where(
             ProcessingFacility.id == payload.facility_id,
             or_(
-                ProcessingFacility.user_id == user.id,
+                ProcessingFacility.user_id == workspace_owner_id(user),
                 and_(
                     ProcessingFacility.user_id.is_(None),
                     ProcessingFacility.scenario_id.in_(owned_scenario_ids),
@@ -129,7 +130,7 @@ def _validated_resources(
         select(Vehicle).where(
             Vehicle.id.in_(payload.vehicle_ids),
             or_(
-                Vehicle.user_id == user.id,
+                Vehicle.user_id == workspace_owner_id(user),
                 Vehicle.scenario_id.in_(owned_scenario_ids),
             ),
             Vehicle.depot_id == depot.id,
@@ -147,7 +148,7 @@ def _validated_resources(
         select(StoragePoint).where(
             StoragePoint.id.in_(payload.storage_point_ids),
             or_(
-                StoragePoint.user_id == user.id,
+                StoragePoint.user_id == workspace_owner_id(user),
                 and_(
                     StoragePoint.user_id.is_(None),
                     StoragePoint.scenario_id.in_(owned_scenario_ids),
@@ -195,7 +196,7 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
         raise HTTPException(status_code=422, detail="Scenario name is required.")
     duplicate = db.scalar(
         select(Scenario.id).where(
-            Scenario.user_id == user.id,
+            Scenario.user_id == workspace_owner_id(user),
             func.lower(Scenario.name) == name.lower(),
             Scenario.id != scenario.id,
         )
@@ -219,11 +220,11 @@ def _apply_payload(db: Session, scenario: Scenario, payload: ScenarioWrite, user
 def scenario_options(
     db: Session = Depends(get_db), user: User = Depends(get_current_user)
 ) -> ScenarioOptions:
-    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == user.id)
+    owned_scenario_ids = select(Scenario.id).where(Scenario.user_id == workspace_owner_id(user))
     depots = db.scalars(
         select(Depot)
         .where(
-            Depot.user_id == user.id,
+            Depot.user_id == workspace_owner_id(user),
             Depot.is_active.is_(True),
             Depot.code.is_not(None),
             Depot.latitude.is_not(None),
@@ -235,7 +236,7 @@ def scenario_options(
         select(ProcessingFacility)
         .where(
             or_(
-                ProcessingFacility.user_id == user.id,
+                ProcessingFacility.user_id == workspace_owner_id(user),
                 and_(
                     ProcessingFacility.user_id.is_(None),
                     ProcessingFacility.scenario_id.in_(owned_scenario_ids),
@@ -250,7 +251,7 @@ def scenario_options(
         select(Vehicle)
         .where(
             or_(
-                Vehicle.user_id == user.id,
+                Vehicle.user_id == workspace_owner_id(user),
                 Vehicle.scenario_id.in_(owned_scenario_ids),
             ),
             Vehicle.status == "available",
@@ -265,7 +266,7 @@ def scenario_options(
         select(StoragePoint)
         .where(
             or_(
-                StoragePoint.user_id == user.id,
+                StoragePoint.user_id == workspace_owner_id(user),
                 and_(
                     StoragePoint.user_id.is_(None),
                     StoragePoint.scenario_id.in_(owned_scenario_ids),
@@ -311,7 +312,7 @@ def list_scenarios(
 ) -> list[ScenarioResponse]:
     scenarios = db.scalars(
         _scenario_query()
-        .where(Scenario.user_id == user.id)
+        .where(Scenario.user_id == workspace_owner_id(user))
         .order_by(Scenario.updated_at.desc(), Scenario.id.desc())
     ).all()
     return [_serialize(scenario) for scenario in scenarios]
@@ -324,7 +325,7 @@ def create_scenario(
     user: User = Depends(get_current_user),
 ) -> ScenarioResponse:
     scenario = Scenario(
-        user_id=user.id,
+        user_id=workspace_owner_id(user),
         reference=f"SC-{uuid4().hex[:12].upper()}",
         name=payload.name.strip(),
         description=payload.description.strip(),
