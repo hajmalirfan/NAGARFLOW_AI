@@ -50,8 +50,10 @@ permission declared, apart from a short list of public routes.
 what the role can use, and a page the role cannot use redirects to the dashboard
 or the first page it can use. A **Route Preview** page serves driver and facility
 accounts, carries a "Synthetic preview, not a dispatch instruction" banner, and
-reads two new scoped endpoints:
+reads three new scoped endpoints:
 
+- `GET /api/v1/scenarios/names`: id and name only, because the full scenario
+  list holds more than these roles may read.
 - `GET /api/v1/scenarios/{id}/preview/routes`: vehicle, stops, quantities and
   planned times for the newest run's OR-Tools routes, or Greedy's when OR-Tools
   has none. 404 if no route exists.
