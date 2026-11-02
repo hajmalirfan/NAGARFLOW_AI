@@ -8,7 +8,7 @@ coordinator's figures.
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -310,3 +310,25 @@ def test_one_coordinator_never_sees_another_coordinators_figures(
     assert body["facility_remaining_capacity_kg"] == 0
     assert body["total_scenarios"] == 0
     assert body["optimized_routes_count"] == 0
+
+
+def test_the_dashboard_does_not_load_saved_route_geometry(
+    client: TestClient, registered_user: dict[str, str], auth_headers: dict[str, str],
+    db_session: Session,
+) -> None:
+    """Thousands of saved runs took seconds to load when only their status is read."""
+    statements: list[str] = []
+
+    def remember(_connection, _cursor, statement, *_rest) -> None:
+        statements.append(statement)
+
+    engine = db_session.get_bind()
+    event.listen(engine, "before_cursor_execute", remember)
+    try:
+        assert client.get(SUMMARY, headers=auth_headers).status_code == 200
+    finally:
+        event.remove(engine, "before_cursor_execute", remember)
+
+    run_reads = [text for text in statements if "FROM optimization_runs" in text]
+    assert run_reads
+    assert not any("optimization_runs.routes" in text for text in run_reads)

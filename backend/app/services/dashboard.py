@@ -101,8 +101,10 @@ def build_dashboard_summary(db: Session, user: User) -> DashboardSummary:
         )
     ).all()
 
-    runs = db.scalars(
-        select(OptimizationRun).where(OptimizationRun.scenario_id.in_(scenario_ids))
+    # Only these columns: saved route geometry is by far the largest thing stored.
+    runs = db.execute(
+        select(OptimizationRun.status, OptimizationRun.total_distance_m)
+        .where(OptimizationRun.scenario_id.in_(scenario_ids))
     ).all()
 
     scenario_reference = {scenario.id: scenario.reference for scenario in scenarios}
