@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # How long OR-Tools may search. It uses the whole limit, because guided
     # local search keeps improving until time runs out.
     optimizer_time_limit_s: int = Field(default=10, gt=0)
+    # How many runs may search at once. Another gets 503, with no queue.
+    optimizer_max_concurrent: int = Field(default=2, gt=0)
 
     # Password reset
     reset_token_expire_minutes: int = 15

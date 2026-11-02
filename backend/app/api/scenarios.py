@@ -23,6 +23,7 @@ from app.schemas.optimization import MethodRun, OptimizationComparison
 from app.schemas.preview import FacilityPreview, RoutePreview, ScenarioName
 from app.schemas.validation import ValidationHistoryEntry, ValidationReportResponse
 from app.services.optimization import comparison_difference, optimize_scenario
+from app.services.optimizer_slots import OptimizerBusy, optimizer_slot
 from app.services.road_network import get_road_network
 from app.services.route_preview import facility_preview, preview_run, route_preview
 from app.services.validation import (
@@ -509,7 +510,15 @@ def optimize_scenario_endpoint(
                 "report": _report_response(report).model_dump(),
             },
         )
-    return build_comparison(optimize_scenario(db, scenario, network))
+    try:
+        with optimizer_slot():
+            runs = optimize_scenario(db, scenario, network)
+    except OptimizerBusy:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The optimizer is busy. Try again shortly.",
+        ) from None
+    return build_comparison(runs)
 
 
 @router.get("/{scenario_id}/optimization", response_model=OptimizationComparison)

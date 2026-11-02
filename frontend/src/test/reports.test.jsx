@@ -159,6 +159,24 @@ describe("Reports page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("S02: Server broke.");
   });
 
+  test("a busy optimizer fails that case and the run carries on", async () => {
+    api.optimizeScenario.mockImplementation(async (id) => {
+      if (id === 3) {
+        throw Object.assign(new Error("The optimizer is busy. Try again shortly."), { status: 503 });
+      }
+      return {};
+    });
+    renderPage();
+    await screen.findByText("SYNTH-S01 Case");
+
+    await userEvent.click(screen.getByRole("button", { name: "Run all" }));
+
+    await waitFor(() => expect(api.optimizeScenario).toHaveBeenCalledTimes(10));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "S03: The optimizer is busy. Try again shortly.",
+    );
+  });
+
   test("it shows no distance for a blocked case", async () => {
     api.getEvaluationReport.mockResolvedValue(report({
       5: {
