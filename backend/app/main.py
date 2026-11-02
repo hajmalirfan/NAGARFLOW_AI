@@ -15,6 +15,7 @@ from app.api.history import router as history_router
 from app.api.routes import router
 from app.api.scenarios import router as scenarios_router
 from app.api.storage_points import router as storage_points_router
+from app.api.team import router as team_router
 from app.api.vehicles import router as vehicles_router
 from app.core.config import settings
 from app.db.base import Base
@@ -91,6 +92,7 @@ app.include_router(facilities_router, prefix=API_V1_PREFIX)
 app.include_router(history_router, prefix=API_V1_PREFIX)
 app.include_router(scenarios_router, prefix=API_V1_PREFIX)
 app.include_router(storage_points_router, prefix=API_V1_PREFIX)
+app.include_router(team_router, prefix=API_V1_PREFIX)
 app.include_router(vehicles_router, prefix=API_V1_PREFIX)
 # The original unversioned paths stay mounted so anything already
 # pointing at /auth/* keeps working. They are hidden from the API docs,

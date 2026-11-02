@@ -52,6 +52,10 @@ MATRIX = [
     ("GET", "/evaluation/report", SUMMARY_READERS),
     ("GET", "/evaluation/report.csv", SUMMARY_READERS),
     ("GET", "/optimization-history", SUMMARY_READERS),
+    ("GET", "/team", PLANNER),
+    ("POST", "/team", PLANNER),
+    ("PUT", "/team/1", PLANNER),
+    ("DELETE", "/team/1", PLANNER),
 ]
 
 
