@@ -3,6 +3,7 @@ from collections.abc import Callable, Generator
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -70,3 +71,16 @@ def require(name: str) -> Callable[..., User]:
 
     dependency.permission = name
     return dependency
+
+
+def commit_or_conflict(db: Session, detail: str) -> None:
+    """Save, turning a unique constraint failure into a 409.
+
+    The check before saving can pass for two requests at once, so the
+    database constraint has the last word.
+    """
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from None

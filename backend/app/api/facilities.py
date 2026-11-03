@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.dependencies import get_db, reject_reserved_code, require
+from app.api.dependencies import commit_or_conflict, get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.models import ProcessingFacility, Scenario, User
 from app.models.scenario import scenario_facilities
@@ -16,6 +16,7 @@ from app.schemas.facility import (
 )
 
 router = APIRouter(prefix="/facilities", tags=["processing facilities"])
+DUPLICATE_CODE = "A processing facility with this code already exists."
 
 
 def _owned_facility_query(user: User) -> Select[tuple[ProcessingFacility]]:
@@ -56,7 +57,7 @@ def _validate_facility_code(
     )
     if duplicate is not None:
         raise HTTPException(
-            status_code=409, detail="A processing facility with this code already exists."
+            status_code=409, detail=DUPLICATE_CODE
         )
 
 
@@ -133,7 +134,7 @@ def create_facility(
         description=values["description"] or None,
     )
     db.add(facility)
-    db.commit()
+    commit_or_conflict(db, DUPLICATE_CODE)
     db.refresh(facility)
     return _serialize(facility)
 
@@ -238,7 +239,7 @@ def update_facility(
     facility.capacity_kg = values["total_capacity_kg"]
     facility.status = values["status"]
     facility.description = values["description"] or None
-    db.commit()
+    commit_or_conflict(db, DUPLICATE_CODE)
     db.refresh(facility)
     return _serialize(facility)
 

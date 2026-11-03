@@ -4,13 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.dependencies import get_db, reject_reserved_code, require
+from app.api.dependencies import commit_or_conflict, get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.models import Scenario, StoragePoint, User
 from app.models.scenario import scenario_storage_points
 from app.schemas.storage_point import StoragePointResponse, StoragePointWrite
 
 router = APIRouter(prefix="/storage-points", tags=["storage points"])
+DUPLICATE_CODE = "A storage point with this code already exists."
 
 
 def _owned_point_query(user: User) -> Select[tuple[StoragePoint]]:
@@ -44,7 +45,7 @@ def _validate_point_code(
     )
     if duplicate is not None:
         raise HTTPException(
-            status_code=409, detail="A storage point with this code already exists."
+            status_code=409, detail=DUPLICATE_CODE
         )
 
 
@@ -150,7 +151,7 @@ def create_storage_point(
         description=values["description"] or None,
     )
     db.add(point)
-    db.commit()
+    commit_or_conflict(db, DUPLICATE_CODE)
     db.refresh(point)
     return _serialize(point)
 
@@ -198,7 +199,7 @@ def update_storage_point(
     point.availability_status = values["availability_status"]
     point.available_from = values["available_from"]
     point.description = values["description"] or None
-    db.commit()
+    commit_or_conflict(db, DUPLICATE_CODE)
     db.refresh(point)
     return _serialize(point)
 

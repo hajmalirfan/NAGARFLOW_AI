@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db, reject_reserved_code, require
+from app.api.dependencies import commit_or_conflict, get_db, reject_reserved_code, require
 from app.core.permissions import workspace_owner_id
 from app.evaluation import CATALOG_CODE_PREFIX
 from app.models import Depot, Scenario, User, Vehicle
@@ -10,6 +10,7 @@ from app.models.scenario import scenario_depots
 from app.schemas.depot import DepotResponse, DepotWrite
 
 router = APIRouter(prefix="/depots", tags=["depots"])
+DUPLICATE_CODE = "A depot with this code already exists."
 
 
 def _get_owned_depot(db: Session, depot_id: int, user: User) -> Depot:
@@ -31,7 +32,7 @@ def _validate_depot(
         )
     )
     if duplicate_code is not None:
-        raise HTTPException(status_code=409, detail="A depot with this code already exists.")
+        raise HTTPException(status_code=409, detail=DUPLICATE_CODE)
 
     if payload.is_active:
         active_depot = db.scalar(
@@ -59,7 +60,7 @@ def create_depot(
     _validate_depot(db, payload, user)
     depot = Depot(user_id=workspace_owner_id(user), **payload.model_dump())
     db.add(depot)
-    db.commit()
+    commit_or_conflict(db, DUPLICATE_CODE)
     db.refresh(depot)
     return depot
 
@@ -103,7 +104,7 @@ def update_depot(
             },
             synchronize_session="fetch",
         )
-    db.commit()
+    commit_or_conflict(db, DUPLICATE_CODE)
     db.refresh(depot)
     return depot
 
