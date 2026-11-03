@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     optimizer_time_limit_s: int = Field(default=10, gt=0)
     # How many runs may search at once. Another gets 503, with no queue.
     optimizer_max_concurrent: int = Field(default=2, gt=0)
+    # How many proxies in front of the backend append to X-Forwarded-For. With
+    # 0 the header is ignored, so a client cannot choose its own address.
+    trusted_proxy_hops: int = Field(default=0, ge=0)
 
     # Password reset
     reset_token_expire_minutes: int = 15

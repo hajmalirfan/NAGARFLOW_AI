@@ -3,11 +3,14 @@
 from datetime import timedelta
 
 import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.auth import client_address
 from app.core.clock import utcnow
+from app.core.config import settings
 from app.core.rate_limit import RateLimiter, login_limiter
 from app.core.security import hash_reset_token
 from app.models import User
@@ -172,3 +175,67 @@ def test_a_failed_password_reset_leaves_the_limit(
 
     assert reset.status_code == 400
     assert fail_login(client, registered_user["email"]) == 429
+
+
+def request_from(forwarded: str | None, connection: str = "10.0.0.1") -> Request:
+    headers = [(b"x-forwarded-for", forwarded.encode())] if forwarded is not None else []
+    return Request({"type": "http", "headers": headers, "client": (connection, 1234)})
+
+
+def test_no_hops_uses_the_connection_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 0)
+
+    assert client_address(request_from("1.1.1.1")) == "10.0.0.1"
+
+
+def test_one_hop_uses_the_last_forwarded_address(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+    assert client_address(request_from("1.1.1.1, 2.2.2.2")) == "2.2.2.2"
+
+
+def test_two_hops_skip_the_inner_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 2)
+
+    assert client_address(request_from("1.1.1.1, 2.2.2.2, 3.3.3.3")) == "2.2.2.2"
+
+
+def test_a_forged_left_entry_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+    assert client_address(request_from("6.6.6.6, 7.7.7.7, 2.2.2.2")) == "2.2.2.2"
+
+
+def test_a_short_header_falls_back_to_the_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 2)
+
+    assert client_address(request_from("2.2.2.2")) == "10.0.0.1"
+
+
+def test_a_missing_header_falls_back_to_the_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+    assert client_address(request_from(None)) == "10.0.0.1"
+    assert client_address(request_from(" , ")) == "10.0.0.1"
+
+
+def test_the_limit_follows_the_forwarded_address(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(settings, "trusted_proxy_hops", 1)
+
+    def attempt(address: str, number: int) -> int:
+        return client.post(
+            LOGIN, headers={"X-Forwarded-For": address},
+            json={"email": f"p{number}@example.com", "password": "wrong-password"},
+        ).status_code
+
+    for number in range(5):
+        assert attempt("9.9.9.9", number) == 401
+
+    assert attempt("9.9.9.9", 99) == 429
+    assert attempt("8.8.8.8", 98) == 401
+
+
+def test_the_default_trusts_no_proxy() -> None:
+    assert type(settings).model_fields["trusted_proxy_hops"].default == 0

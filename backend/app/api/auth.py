@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_db, require
+from app.core.config import settings
 from app.core.rate_limit import RateLimiter, forgot_password_limiter, login_limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models.user import User
@@ -30,9 +31,20 @@ INVALID_TOKEN_MESSAGE = (
 )
 
 
+def client_address(request: Request) -> str:
+    """The caller's address. Each trusted proxy appends the address it saw, so
+    with N proxies the Nth entry from the right is the one no client wrote."""
+    hops = settings.trusted_proxy_hops
+    if hops:
+        header = request.headers.get("x-forwarded-for", "")
+        entries = [entry.strip() for entry in header.split(",") if entry.strip()]
+        if len(entries) >= hops:
+            return entries[-hops]
+    return request.client.host if request.client else "unknown"
+
+
 def limit_keys(request: Request, email: str) -> tuple[str, str]:
-    address = request.client.host if request.client else "unknown"
-    return f"email:{email}", f"ip:{address}"
+    return f"email:{email}", f"ip:{client_address(request)}"
 
 
 def refuse_if_limited(limiter: RateLimiter, keys: tuple[str, str]) -> None:
