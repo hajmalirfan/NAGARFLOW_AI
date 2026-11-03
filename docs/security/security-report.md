@@ -33,6 +33,17 @@ Date: November 2, 2026. Branch `feat/access-hardening`. This covers the applicat
 
 The new attack tests in `backend/tests/test_security.py` found no further defects. Access, tokens and input handling held up as built.
 
+## Closed in Stage 4
+
+| Item | What changed |
+| --- | --- |
+| Client address behind a proxy | `TRUSTED_PROXY_HOPS` takes the address from the trusted proxy's `X-Forwarded-For` entry. Entries a client writes further left are ignored, and a header shorter than the hop count falls back to the connection address. The compose file publishes the backend on 127.0.0.1 only, so only a proxy on the host can reach it |
+| Reset emails without SMTP | Production refuses to start with `SMTP_HOST` empty |
+| `ENVIRONMENT` defaults to `development` | The compose file sets `ENVIRONMENT=production`. Production also refuses localhost CORS and frontend addresses, the example database password and an empty roads path, and names every problem at once |
+| Frontend headers | nginx sends `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and a Content-Security-Policy. The smoke check confirms them |
+| SQLite foreign keys and ids | The suite now also runs on PostgreSQL, where removing a planner removes their linked accounts. Production uses PostgreSQL, which does not reuse ids |
+| A duplicate code saved in a race | Two saves of one depot, storage point or facility code could both pass the check, and the second got a 500. It now gets a 409 |
+
 ## Dependency audits
 
 Both ran once, on November 2, 2026.
@@ -45,19 +56,14 @@ Both ran once, on November 2, 2026.
 | Item | Effect | When to address |
 | --- | --- | --- |
 | Rate limits are held in memory | Counts are per process and reset on restart. Several server processes each keep their own count | Before running more than one process |
-| Client address behind a proxy | Behind a proxy, every user may appear as one address, so the address limit would apply to everyone together | Stage 4, when the deployment is known |
 | Per-email limit | Someone who knows an email can lock that person out of login for up to 15 minutes, though a successful password reset lifts it, and can block that person's reset emails for up to an hour | Accepted for now |
 | Limit under a burst | The limit is checked before the slow password hash and counted after it, so parallel requests can get past 5 in one window, up to the server's thread pool size (about 40). This comes from reading the code and was not measured | Later |
 | Reset clears the address count | A successful reset clears the login count for that client address too, so someone with their own account could clear it, at most five times an hour | Accepted for now |
-| Reset emails without SMTP | With `SMTP_HOST` empty, reset links are logged and written to `dev_emails/`, even outside development | Stage 4 |
 | Shared address limit | Five failed logins from one office network block that address for 15 minutes | Accepted for now |
 | Temporary passwords | A team account is not forced to change the one its planner set | Later, with a password policy |
 | Tokens after a password reset | An existing token stays valid until it expires, up to 60 minutes | Later |
 | Token storage | The frontend keeps the token in `localStorage`, which a script injection could read. No injection was found, and React escapes displayed text | Later |
 | Email discovery | Sign-up reports that an email is taken, and a login for an unknown email skips the password hash, so it returns faster | Later |
-| `ENVIRONMENT` defaults to `development` | A deployment that forgets to set it gets none of the production safeguards | Stage 4 must set it |
-| Frontend headers | These headers cover the API only. Whatever serves the frontend needs its own | Stage 4 |
-| SQLite foreign keys and ids | SQLite does not enforce cascades, so removing a planner's linked accounts relies on PostgreSQL. No route deletes a planner today. SQLite can also reuse a removed account's id, so its old token could act as the next account until it expires. PostgreSQL does not reuse ids | Check in Stage 4 |
 | Role authority | The five roles are proposed views, and their real authority is unconfirmed | Needs a decision from the municipality |
 
 These are outside this stage's scope: single sign-on, audit logs, shared rate-limit storage and a full password policy.

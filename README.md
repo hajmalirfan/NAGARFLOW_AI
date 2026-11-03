@@ -83,6 +83,20 @@ py -m pytest
 The backend suite runs against an in-memory SQLite database, so it needs no
 running PostgreSQL and never touches your development data.
 
+To run the same suite on PostgreSQL, point `TEST_DATABASE_URL` at an empty
+database whose name ends in `_test`. The suite refuses any other name, because
+it drops and recreates every table. A few tests marked `postgres_only` run only
+this way.
+
+```powershell
+cd backend
+$env:TEST_DATABASE_URL = "postgresql+psycopg://USER:PASSWORD@127.0.0.1:55432/nagarflow_test"
+py -m pytest
+```
+
+`backend/scripts/throwaway_postgres.py` starts a separate local cluster for this
+and writes its password and URLs into the folder you give it.
+
 Frontend:
 
 ```powershell
@@ -131,9 +145,15 @@ per email or client address, get a 429. These counts are held in memory, so they
 are per process and reset on restart.
 
 Set `ENVIRONMENT` to anything but `development` when deploying. The server then
-refuses to start on the default, example or a short JWT secret, turns off the API
-docs and sends `Strict-Transport-Security`. If it stays unset, none of this
-applies. The tests, audits, fixes and open items are in
+refuses to start on the default, example or a short JWT secret, a localhost CORS
+or frontend address, an empty `SMTP_HOST`, the example database password or an
+empty roads path. It also turns off the API docs and sends
+`Strict-Transport-Security`. If it stays unset, none of this applies.
+
+`TRUSTED_PROXY_HOPS` (default 0) says how many proxies in front of the backend add
+to `X-Forwarded-For`. The rate limits then use the address the nearest trusted
+proxy saw. Leave it at 0 when nothing sits in front, or clients could choose their
+own address. The tests, audits, fixes and open items are in
 [the security report](docs/security/security-report.md).
 
 ## Performance
@@ -143,11 +163,20 @@ measures a running API. Results and their limits are in
 [the performance report](docs/performance/performance-report.md). On a laptop
 with SQLite and five concurrent users, the dashboard, scenario list and history
 stayed under the assumed 500 ms p95, and the evaluation report did not, at 600 to
-683 ms. PostgreSQL has not been measured.
+683 ms. On PostgreSQL 18 on the same laptop, the dashboard, history and report
+all missed it. This needs measuring again on the real server.
 
 `OPTIMIZER_MAX_CONCURRENT` (default 2) limits optimizations running at once. A
 run past the limit gets a 503 and can be tried again. There is no queue, and an
 optimization holds its request open for about 18 seconds.
+
+## Deployment
+
+The production package is prepared but not deployed. `docker-compose.prod.yml`
+runs PostgreSQL, the API and the frontend behind nginx, with settings from a copy
+of `.env.production.example`. `backend/scripts/smoke_check.py` checks a running
+site without changing anything. Setup, backups, upgrades, the proxy and what is
+not done are in [the deployment guide](docs/deployment/deployment-guide.md).
 
 ## Dashboard
 
