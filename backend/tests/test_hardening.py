@@ -155,6 +155,8 @@ def test_a_valid_production_set_starts() -> None:
     {"smtp_host": ""},
     {"database_url": "postgresql+psycopg://nagarflow:change-this-local-password@db/nagarflow"},
     {"road_network_path": ""},
+    {"database_url": "postgresql+psycopg://nagarflow:replace-with-a-private-database-password@db:5432/nagarflow"},
+    {"jwt_secret_key": "replace-with-a-generated-secret-of-enough-length"},
 ])
 def test_each_unsafe_setting_alone_is_refused(overrides: dict) -> None:
     with pytest.raises(RuntimeError):
@@ -184,3 +186,35 @@ def test_development_ignores_all_of_these() -> None:
 
     check_production_settings(values)
     assert production_warnings(values) == []
+
+
+def test_every_example_value_in_the_production_file_is_refused() -> None:
+    """Copying .env.production.example unchanged must not start a server."""
+    example = {}
+    for line in (BACKEND.parent / ".env.production.example").read_text().splitlines():
+        if line and not line.startswith("#"):
+            name, _, value = line.partition("=")
+            example[name] = value
+    with pytest.raises(RuntimeError) as refusal:
+        check_production_settings(production_values(
+            database_url=example["DATABASE_URL"], jwt_secret_key=example["JWT_SECRET_KEY"],
+        ))
+
+    assert "DATABASE_URL" in str(refusal.value)
+    assert "JWT_SECRET_KEY" in str(refusal.value)
+
+
+def test_compose_takes_each_backend_setting_from_the_env_file() -> None:
+    """A setting the env file offers must not be pinned in the compose file."""
+    offered = {
+        line.partition("=")[0]
+        for line in (BACKEND.parent / ".env.production.example").read_text().splitlines()
+        if line and not line.startswith("#")
+    }
+    compose = (BACKEND.parent / "docker-compose.prod.yml").read_text()
+    pinned = [
+        name for name in offered
+        if f"      {name}: " in compose and f"      {name}: ${{{name}" not in compose
+    ]
+
+    assert pinned == []

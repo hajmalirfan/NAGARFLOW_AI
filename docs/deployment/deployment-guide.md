@@ -37,7 +37,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 | Setting | What to put |
 | --- | --- |
 | `POSTGRES_DB`, `POSTGRES_USER` | The database name and user. `nagarflow` for both is fine |
-| `POSTGRES_PASSWORD` | A generated password. The server refuses the example one |
+| `POSTGRES_PASSWORD` | A generated password. The server refuses any value still starting with `replace-with-` |
 | `DATABASE_URL` | `postgresql+psycopg://USER:PASSWORD@db:5432/DB`, with the same three values |
 | `JWT_SECRET_KEY` | A generated secret of at least 32 characters. The server refuses the default and example ones |
 | `CORS_ORIGINS` | The frontend's public address, as a JSON list, such as `["https://nagarflow.example.org"]`. No localhost |
@@ -49,7 +49,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 | `ROAD_SNAP_MAX_M` | How far a point may be from a road, in metres. Default 200 |
 | `OPTIMIZER_TIME_LIMIT_S` | The OR-Tools search limit in seconds. Default 10 |
 | `OPTIMIZER_MAX_CONCURRENT` | How many optimizations may run at once. Default 2. Another gets a 503 |
-| `TRUSTED_PROXY_HOPS` | Set to 1 in the compose file. See the proxy section |
+| `TRUSTED_PROXY_HOPS` | 1 when one proxy sits in front, which is the compose default. 0 with no proxy. See the proxy section |
 
 The compose file also sets `ENVIRONMENT=production`. In production the server refuses to start, and names every problem at once, when:
 

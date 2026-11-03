@@ -72,6 +72,8 @@ class Settings(BaseSettings):
 
 
 EXAMPLE_DATABASE_PASSWORD = "change-this-local-password"
+# Every placeholder in .env.production.example starts with this.
+PLACEHOLDER_PREFIX = "replace-with-"
 LOCAL_HOSTS = ("localhost", "127.0.0.1")
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
@@ -79,7 +81,11 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 def _production_problems(values: Settings) -> list[str]:
     problems = []
     secret = values.jwt_secret_key
-    if secret in (DEFAULT_JWT_SECRET, EXAMPLE_JWT_SECRET) or len(secret) < MIN_JWT_SECRET_LENGTH:
+    if (
+        secret in (DEFAULT_JWT_SECRET, EXAMPLE_JWT_SECRET)
+        or secret.startswith(PLACEHOLDER_PREFIX)
+        or len(secret) < MIN_JWT_SECRET_LENGTH
+    ):
         problems.append(
             f"JWT_SECRET_KEY must be a private value of at least {MIN_JWT_SECRET_LENGTH} characters."
         )
@@ -89,7 +95,7 @@ def _production_problems(values: Settings) -> list[str]:
         problems.append("FRONTEND_BASE_URL must be the deployed frontend, not localhost.")
     if not values.smtp_host:
         problems.append("SMTP_HOST must be set, or reset links are written to disk and logged.")
-    if EXAMPLE_DATABASE_PASSWORD in values.database_url:
+    if EXAMPLE_DATABASE_PASSWORD in values.database_url or PLACEHOLDER_PREFIX in values.database_url:
         problems.append("DATABASE_URL still uses the example password.")
     if not values.road_network_path:
         problems.append("ROAD_NETWORK_PATH must point at the roads file, or no route can run.")
