@@ -122,7 +122,7 @@ export default function DashboardPage() {
       {!hasAnyData && (
         <div className="notice">
           <strong>Nothing is configured yet.</strong> Every figure below is zero because no
-          scenario has been created. These are real database values, not sample data.
+          scenario has been created. They come from your saved records, not sample data.
         </div>
       )}
 

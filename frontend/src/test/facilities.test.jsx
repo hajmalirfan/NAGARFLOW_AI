@@ -430,3 +430,20 @@ describe("sidebar", () => {
     expect(screen.queryByText(/not built yet/i)).not.toBeInTheDocument();
   });
 });
+
+describe("evaluation input wording", () => {
+  test("the list never asks for real or actual records", async () => {
+    renderApp("/facility");
+    await screen.findByRole("heading", { name: /processing facility management/i });
+
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+
+  test("the form marks entries as evaluation inputs, not verified records", async () => {
+    renderApp("/facility/new");
+    await screen.findByRole("heading", { name: /add processing facility/i });
+
+    expect(screen.getByText(/not verified municipal records/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+});

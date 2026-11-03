@@ -297,3 +297,20 @@ describe("storage point management", () => {
     ));
   });
 });
+
+describe("evaluation input wording", () => {
+  test("the list never asks for real or actual records", async () => {
+    renderApp("/storage-points");
+    await screen.findByRole("heading", { name: "No storage points registered" });
+
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+
+  test("the form marks entries as evaluation inputs, not verified records", async () => {
+    renderApp("/storage-points/new");
+    await screen.findByLabelText("Storage point name");
+
+    expect(screen.getByText(/not verified municipal records/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+});

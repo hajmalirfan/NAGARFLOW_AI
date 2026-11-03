@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCan } from "../auth/permissions.js";
 import { createDepot, deleteDepot, getDepot, getDepots, updateDepot } from "../services/api.js";
+import InputNotice from "../components/InputNotice.jsx";
 
 function DepotError({ message }) {
   return message ? <p className="form-error depot-error" role="alert">{message}</p> : null;
@@ -68,7 +69,7 @@ export function DepotListPage() {
       ) : (
         <div className="panel scenario-empty">
           <h2>No depots registered</h2>
-          <p>Add the real municipal depot details. No sample locations are created.</p>
+          <p>Add the depot details for this evaluation. No sample locations are created.</p>
           {canWrite && <Link className="primary-action" to="/depot/new">Add your depot</Link>}
         </div>
       )}
@@ -183,8 +184,9 @@ export function DepotFormPage() {
     <section className="depot-page">
       <DepotHeading
         title={editing ? "Edit depot" : "Add depot"}
-        subtitle="Enter the real depot details and coordinates. Only one active depot is allowed."
+        subtitle="Enter the depot details and coordinates. Only one active depot is allowed."
       />
+      <InputNotice />
       <DepotError message={error} />
       <form className="scenario-form panel depot-form" onSubmit={submit}>
         <label className="scenario-field">

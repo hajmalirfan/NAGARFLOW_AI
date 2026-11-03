@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCan } from "../auth/permissions.js";
 import FacilityMap from "../components/FacilityMap.jsx";
+import InputNotice from "../components/InputNotice.jsx";
 import {
   createFacility,
   deleteFacility,
@@ -348,6 +349,7 @@ export function FacilityFormPage() {
         title={editing ? "Edit processing facility" : "Add processing facility"}
         subtitle="Capacity must be greater than zero and is shared across both vehicle deliveries."
       />
+      <InputNotice />
       <form className="panel facility-form" onSubmit={handleSubmit}>
         <div className="field">
           <label htmlFor="name">Facility name</label>

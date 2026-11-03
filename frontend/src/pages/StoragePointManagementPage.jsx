@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCan } from "../auth/permissions.js";
 import StoragePointMap from "../components/StoragePointMap.jsx";
+import InputNotice from "../components/InputNotice.jsx";
 import {
   createStoragePoint,
   deleteStoragePoint,
@@ -94,7 +95,7 @@ export function StoragePointListPage() {
     <section className="storage-point-page">
       <StoragePointHeading
         title="Storage Point Management"
-        subtitle="Manage real collection locations, recorded waste quantities, and availability."
+        subtitle="Manage collection locations, waste quantities and availability."
         action={canWrite && <Link className="primary-action" to="/storage-points/new">＋ Add storage point</Link>}
       />
       <StoragePointError message={error} />
@@ -140,7 +141,7 @@ export function StoragePointListPage() {
           <p>
             {points.length
               ? "Try a different search or availability filter."
-              : "Register actual collection points. No sample locations or waste values are created."}
+              : "Register collection points. No sample locations or waste values are created."}
           </p>
           {canWrite && !points.length && <Link className="primary-action" to="/storage-points/new">Add your first point</Link>}
         </div>
@@ -258,8 +259,9 @@ export function StoragePointFormPage() {
     <section className="storage-point-page">
       <StoragePointHeading
         title={editing ? "Edit storage point" : "Add storage point"}
-        subtitle="Use verified location coordinates and the actual recorded waste quantity."
+        subtitle="Enter each point's coordinates and waste quantity."
       />
+      <InputNotice />
       <StoragePointError message={error} />
       <form className="scenario-form panel storage-point-form" onSubmit={submit}>
         <label className="scenario-field">

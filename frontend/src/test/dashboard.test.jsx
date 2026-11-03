@@ -426,3 +426,19 @@ describe("password reset link", () => {
     expect(screen.queryByLabelText(/new password/i)).not.toBeInTheDocument();
   });
 });
+
+describe("empty dashboard wording", () => {
+  test("it says the zeros come from saved records, not that they are real", async () => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, "good-token");
+    api.getCurrentUser.mockResolvedValue(USER);
+    api.getDashboardSummary.mockResolvedValue(EMPTY_SUMMARY);
+    api.getScenarios.mockResolvedValue([]);
+    api.getDepots.mockResolvedValue([]);
+    api.getVehicles.mockResolvedValue([]);
+
+    renderApp("/dashboard");
+
+    expect(await screen.findByText(/come from your saved records, not sample data/i)).toBeInTheDocument();
+    expect(screen.queryByText(/real database values/i)).not.toBeInTheDocument();
+  });
+});

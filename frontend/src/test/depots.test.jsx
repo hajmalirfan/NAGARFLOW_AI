@@ -183,3 +183,20 @@ describe("depot management", () => {
     expect(screen.getByLabelText("Latitude")).toHaveValue(null);
   });
 });
+
+describe("evaluation input wording", () => {
+  test("the list never asks for real or actual records", async () => {
+    renderApp("/depot");
+    await screen.findByRole("heading", { name: "No depots registered" });
+
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+
+  test("the form marks entries as evaluation inputs, not verified records", async () => {
+    renderApp("/depot/new");
+    await screen.findByLabelText("Depot name");
+
+    expect(screen.getByText(/not verified municipal records/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+});

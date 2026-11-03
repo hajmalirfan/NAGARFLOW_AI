@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCan } from "../auth/permissions.js";
+import InputNotice from "../components/InputNotice.jsx";
 import {
   createVehicle,
   deleteVehicle,
@@ -76,7 +77,7 @@ export function VehicleListPage() {
       ) : (
         <div className="panel scenario-empty">
           <h2>No vehicles registered</h2>
-          <p>Register the municipal vehicles using real registration, capacity, and depot information.</p>
+          <p>Register the two vehicles with their registration, capacity and depot.</p>
           {canWrite && <Link className="primary-action" to="/vehicles/new">Add first vehicle</Link>}
         </div>
       )}
@@ -158,10 +159,11 @@ export function VehicleFormPage() {
     <section className="vehicle-page">
       <VehicleHeading
         title={editing ? "Edit vehicle" : "Add vehicle"}
-        subtitle="Register a real vehicle and assign it to the active starting depot."
+        subtitle="Register a vehicle and assign it to the active starting depot."
       />
+      <InputNotice />
       {!depots.length && (
-        <div className="notice"><strong>An active depot is required.</strong> Configure a depot with real coordinates before adding vehicles. <Link to="/depot">Manage depots</Link></div>
+        <div className="notice"><strong>An active depot is required.</strong> Configure a depot with coordinates before adding vehicles. <Link to="/depot">Manage depots</Link></div>
       )}
       <VehicleError message={error} />
       <form className="scenario-form panel vehicle-form" onSubmit={submit}>

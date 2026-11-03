@@ -155,3 +155,20 @@ describe("vehicle management", () => {
     expect(await screen.findByRole("button", { name: "Add vehicle" })).toBeEnabled();
   });
 });
+
+describe("evaluation input wording", () => {
+  test("the list never asks for real or actual records", async () => {
+    renderApp("/vehicles");
+    await screen.findByRole("heading", { name: "No vehicles registered" });
+
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+
+  test("the form marks entries as evaluation inputs, not verified records", async () => {
+    renderApp("/vehicles/new");
+    await screen.findByLabelText("Vehicle number");
+
+    expect(screen.getByText(/not verified municipal records/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\breal\b|\bactual\b|verified location/i)).not.toBeInTheDocument();
+  });
+});
