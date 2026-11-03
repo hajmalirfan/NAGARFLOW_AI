@@ -1,11 +1,12 @@
 """Seed a throwaway database, then measure a running API against it.
 
     python scripts/perf_check.py seed --db perf.db
-    # Start uvicorn with DATABASE_URL=sqlite:///perf.db and ROAD_NETWORK_PATH set.
+    python scripts/perf_check.py seed --db postgresql+psycopg://USER:PASSWORD@HOST/nagarflow_perf
+    # Start uvicorn with DATABASE_URL set to the same database and ROAD_NETWORK_PATH set.
     python scripts/perf_check.py measure --url http://127.0.0.1:8000 --password <printed>
 
 Every value it seeds is synthetic. It starts nothing itself, and it refuses
-to touch any database except a new SQLite file.
+to touch any database except a new SQLite file or an empty PostgreSQL one.
 """
 
 import argparse
@@ -20,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy import create_engine, inspect  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
 from app.core.security import hash_password  # noqa: E402
@@ -33,6 +34,7 @@ SCENARIOS = 50
 POINTS = 500
 RUNS = 2000
 SQLITE_PREFIX = "sqlite:///"
+POSTGRES_PREFIX = "postgresql+psycopg://"
 READS = {
     "Dashboard": "/api/v1/dashboard/summary",
     "Scenario list": "/api/v1/scenarios",
@@ -65,12 +67,18 @@ def _saved_route(index: int) -> dict:
 
 
 def seed(database_url: str, password: str) -> dict[str, int]:
-    if not database_url.startswith(SQLITE_PREFIX):
-        raise ValueError("Performance data only goes in a new SQLite file.")
-    if Path(database_url[len(SQLITE_PREFIX):]).exists():
-        raise ValueError("That file already exists, and this script never overwrites one.")
+    if database_url.startswith(SQLITE_PREFIX):
+        if Path(database_url[len(SQLITE_PREFIX):]).exists():
+            raise ValueError("That file already exists, and this script never overwrites one.")
+        engine = create_engine(database_url)
+    elif database_url.startswith(POSTGRES_PREFIX):
+        engine = create_engine(database_url)
+        if inspect(engine).get_table_names():
+            engine.dispose()
+            raise ValueError("That database already has tables, and this script never adds to one.")
+    else:
+        raise ValueError("Performance data only goes in a new SQLite file or an empty PostgreSQL database.")
 
-    engine = create_engine(database_url)
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
         user = User(name="Performance", email=EMAIL, hashed_password=hash_password(password))
@@ -173,7 +181,10 @@ def main() -> None:
 
     if options.command == "seed":
         password = secrets.token_urlsafe(16)
-        print(seed(f"{SQLITE_PREFIX}{Path(options.db).resolve().as_posix()}", password))
+        url = options.db if options.db.startswith(POSTGRES_PREFIX) else (
+            f"{SQLITE_PREFIX}{Path(options.db).resolve().as_posix()}"
+        )
+        print(seed(url, password))
         print(f"Sign in as {EMAIL} with {password}")
         return
 
