@@ -156,6 +156,14 @@ describe("Route Optimization page", () => {
     expect(screen.queryByText(/optimal/i)).not.toBeInTheDocument();
   });
 
+  test("it marks results as synthetic, not a dispatch instruction", async () => {
+    await runOptimization();
+
+    expect(
+      await screen.findByText("Synthetic results, not a dispatch instruction")
+    ).toBeInTheDocument();
+  });
+
   test("it labels times as estimates", async () => {
     await runOptimization();
 

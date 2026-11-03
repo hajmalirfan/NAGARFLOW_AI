@@ -109,6 +109,7 @@ export default function ComparisonView({ comparison }) {
 
   return (
     <>
+      <p className="notice"><strong>Synthetic results, not a dispatch instruction</strong></p>
       <p className="panel-note">Run on {formatRunDate(comparison.created_at)}</p>
       <div className="panel-grid">
         {METHODS.map(({ key, name }) => (
