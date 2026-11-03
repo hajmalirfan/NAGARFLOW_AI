@@ -17,7 +17,13 @@ from app.api.scenarios import router as scenarios_router
 from app.api.storage_points import router as storage_points_router
 from app.api.team import router as team_router
 from app.api.vehicles import router as vehicles_router
-from app.core.config import DEVELOPMENT, api_doc_urls, check_production_settings, settings
+from app.core.config import (
+    DEVELOPMENT,
+    api_doc_urls,
+    check_production_settings,
+    production_warnings,
+    settings,
+)
 from app.db.base import Base
 from app.db.migrations import (
     upgrade_legacy_depot_schema,
@@ -43,6 +49,8 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     check_production_settings(settings)
+    for warning in production_warnings(settings):
+        logging.getLogger(__name__).warning(warning)
     Base.metadata.create_all(bind=engine)
     upgrade_legacy_user_schema(engine)
     upgrade_legacy_depot_schema(engine)

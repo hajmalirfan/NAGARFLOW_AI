@@ -68,16 +68,52 @@ class Settings(BaseSettings):
     )
 
 
-def check_production_settings(values: Settings) -> None:
-    """Stop the server rather than run with a secret anyone could read."""
-    if values.environment == DEVELOPMENT:
-        return
+EXAMPLE_DATABASE_PASSWORD = "change-this-local-password"
+LOCAL_HOSTS = ("localhost", "127.0.0.1")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _production_problems(values: Settings) -> list[str]:
+    problems = []
     secret = values.jwt_secret_key
     if secret in (DEFAULT_JWT_SECRET, EXAMPLE_JWT_SECRET) or len(secret) < MIN_JWT_SECRET_LENGTH:
-        raise RuntimeError(
-            f"Set JWT_SECRET_KEY to a private value of at least {MIN_JWT_SECRET_LENGTH} "
-            f"characters before starting in the {values.environment} environment."
+        problems.append(
+            f"JWT_SECRET_KEY must be a private value of at least {MIN_JWT_SECRET_LENGTH} characters."
         )
+    if any(host in origin for origin in values.cors_origins for host in LOCAL_HOSTS):
+        problems.append("CORS_ORIGINS must list the deployed frontend, not localhost.")
+    if any(host in values.frontend_base_url for host in LOCAL_HOSTS):
+        problems.append("FRONTEND_BASE_URL must be the deployed frontend, not localhost.")
+    if not values.smtp_host:
+        problems.append("SMTP_HOST must be set, or reset links are written to disk and logged.")
+    if EXAMPLE_DATABASE_PASSWORD in values.database_url:
+        problems.append("DATABASE_URL still uses the example password.")
+    if not values.road_network_path:
+        problems.append("ROAD_NETWORK_PATH must point at the roads file, or no route can run.")
+    return problems
+
+
+def check_production_settings(values: Settings) -> None:
+    """Stop the server rather than run with settings meant for one laptop."""
+    if values.environment == DEVELOPMENT:
+        return
+    problems = _production_problems(values)
+    if problems:
+        raise RuntimeError(
+            f"Refusing to start in the {values.environment} environment. " + " ".join(problems)
+        )
+
+
+def production_warnings(values: Settings) -> list[str]:
+    """Problems worth logging that should not stop a start, such as a late mount."""
+    if values.environment == DEVELOPMENT or not values.road_network_path:
+        return []
+    path = Path(values.road_network_path)
+    if not path.is_absolute():
+        path = REPOSITORY_ROOT / path
+    if not path.is_file():
+        return [f"ROAD_NETWORK_PATH points at {path}, which is not a file yet."]
+    return []
 
 
 def api_doc_urls(environment: str) -> dict[str, str | None]:
