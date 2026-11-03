@@ -2,15 +2,18 @@
 
 Tests run against an in-memory SQLite database so they never touch the
 development PostgreSQL data, and so they can run without Docker or a
-database server. The FastAPI ``get_db`` dependency is replaced with a
+database server. Set TEST_DATABASE_URL to run them on PostgreSQL instead,
+against a database whose name ends in _test, which each test empties. The FastAPI ``get_db`` dependency is replaced with a
 session bound to that SQLite database.
 """
 
+import os
 from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -22,8 +25,7 @@ from app.main import app
 
 # Importing every model registers its table on ``Base.metadata`` so that
 # ``create_all`` below builds the full schema.
-from app.models.password_reset_token import PasswordResetToken  # noqa: F401
-from app.models.user import User  # noqa: F401
+import app.models as all_models  # noqa: F401
 from app.services.road_network import reset_road_network
 
 
@@ -43,8 +45,59 @@ def fresh_rate_limits() -> Generator[None, None, None]:
     yield
 
 
+def postgres_url() -> str | None:
+    return os.environ.get("TEST_DATABASE_URL") or None
+
+
+def require_test_database(url: str) -> None:
+    """Refuse any database that is not plainly a throwaway test one."""
+    name = make_url(url).database or ""
+    if not name.endswith("_test"):
+        raise pytest.UsageError(
+            f"TEST_DATABASE_URL must name a database ending in _test, not {name!r}. "
+            "Every table in it is emptied before each test."
+        )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "postgres_only: needs TEST_DATABASE_URL")
+    url = postgres_url()
+    if url:
+        require_test_database(url)
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if postgres_url():
+        return
+    skip = pytest.mark.skip(reason="needs TEST_DATABASE_URL")
+    for item in items:
+        if "postgres_only" in item.keywords:
+            item.add_marker(skip)
+
+
+@pytest.fixture(scope="session")
+def postgres_engine() -> Generator[Engine, None, None]:
+    engine = create_engine(postgres_url())
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    engine.dispose()
+
+
 @pytest.fixture
-def db_session() -> Generator[Session, None, None]:
+def db_session(request: pytest.FixtureRequest) -> Generator[Session, None, None]:
+    if postgres_url():
+        engine = request.getfixturevalue("postgres_engine")
+        tables = ", ".join(table.name for table in Base.metadata.sorted_tables)
+        with engine.begin() as connection:
+            connection.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
+        session = sessionmaker(bind=engine, autoflush=False, autocommit=False)()
+        try:
+            yield session
+        finally:
+            session.close()
+        return
+
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
