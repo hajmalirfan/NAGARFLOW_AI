@@ -1,0 +1,10 @@
+.env*
+node_modules
+dist
+.venv
+dev_emails
+*.db
+docs/dataset
+tests
+__pycache__
+.pytest_cache

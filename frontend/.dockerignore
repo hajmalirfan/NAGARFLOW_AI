@@ -1,0 +1,10 @@
+.env*
+node_modules
+dist
+.venv
+dev_emails
+*.db
+docs/dataset
+src/test
+src/**/*.test.js
+src/**/*.test.jsx

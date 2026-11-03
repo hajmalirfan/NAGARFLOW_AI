@@ -1,0 +1,65 @@
+# Production package. Copy .env.production.example to .env.production, fill it
+# in, then run:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# A proxy with TLS belongs in front of both web services; it is not included.
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      EMAIL_FROM: ${EMAIL_FROM}
+      ROAD_NETWORK_PATH: /data/roads.gpkg
+      ROAD_SNAP_MAX_M: ${ROAD_SNAP_MAX_M:-200}
+      OPTIMIZER_TIME_LIMIT_S: ${OPTIMIZER_TIME_LIMIT_S:-10}
+      OPTIMIZER_MAX_CONCURRENT: ${OPTIMIZER_MAX_CONCURRENT:-2}
+      TRUSTED_PROXY_HOPS: 1
+    volumes:
+      - ${ROAD_NETWORK_HOST_PATH}:/data/roads.gpkg:ro
+    ports:
+      # Local only: the proxy on this host is the one trusted hop.
+      - "127.0.0.1:8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        API_ORIGIN: ${API_ORIGIN}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      API_ORIGIN: ${API_ORIGIN}
+    ports:
+      - "127.0.0.1:8080:80"
+
+volumes:
+  db-data:
